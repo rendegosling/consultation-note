@@ -14,7 +14,9 @@ services:
     environment:
       - NODE_ENV=development
       - POSTGRES_HOST=postgres
-      - AWS_ENDPOINT=http://localstack:4566
+      - POSTGRES_DB=consultation_note
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
     volumes:
       - .:/app
       - /app/node_modules

@@ -1,21 +1,44 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { logger } from '@/infrastructure/logging/logger';
 import { env } from '@/config/env';
 
 const COMPONENT_NAME = 'AudioRecorder';
-const SESSION_ID = 'test-123'; // Our correlation ID
 
 const AudioRecorder = () => {
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
 
+  useEffect(() => {
+    const createSession = async () => {
+      try {
+        const response = await fetch('/api/sessions', {
+          method: 'POST'
+        });
+        const data = await response.json();
+        setSessionId(data.session.id);
+      } catch (error) {
+        logger.error(COMPONENT_NAME, 'Failed to create session', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    };
+
+    createSession();
+  }, []);
+
   const uploadChunk = async (chunk: Blob, chunkNumber: number, isLastChunk: boolean) => {
+    if (!sessionId) {
+      logger.error(COMPONENT_NAME, 'No session ID available for upload');
+      return;
+    }
+
     try {
       logger.info(COMPONENT_NAME, 'Uploading chunk', {
-        sessionId: SESSION_ID,
+        sessionId,
         chunkNumber,
         size: chunk.size,
         isLastChunk,
@@ -26,24 +49,20 @@ const AudioRecorder = () => {
       formData.append('chunkNumber', chunkNumber.toString());
       formData.append('isLastChunk', isLastChunk.toString());
 
-      const response = await fetch(`/api/sessions/${SESSION_ID}/chunks`, {
+      const response = await fetch(`/api/sessions/${sessionId}/chunks`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
       logger.info(COMPONENT_NAME, 'Chunk uploaded successfully', {
-        sessionId: SESSION_ID,
+        sessionId,
         chunkNumber,
         size: chunk.size,
         isLastChunk,
       });
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to upload chunk', {
-        sessionId: SESSION_ID,
+        sessionId,
         error: error instanceof Error ? error.message : String(error),
         chunkNumber,
         isLastChunk,
@@ -51,21 +70,24 @@ const AudioRecorder = () => {
     }
   };
 
-  const startRecording = useCallback(async () => {
+  const startRecording = async () => {
+    if (!sessionId) {
+      logger.error(COMPONENT_NAME, 'Session ID is not available');
+      return;
+    }
+
     try {
-      logger.info(COMPONENT_NAME, 'Requesting microphone access', {
-        sessionId: SESSION_ID
-      });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      logger.info(COMPONENT_NAME, 'Microphone access granted', {
-        sessionId: SESSION_ID
+      const recorder = new MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setStartTime(Date.now());
+
+      logger.info(COMPONENT_NAME, 'Recording started', {
+        sessionId
       });
-      
+
       let chunkNumber = 0;
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
       recorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           chunkNumber++;
@@ -75,38 +97,34 @@ const AudioRecorder = () => {
       };
 
       recorder.start(env.audio.chunkSize);
-      setStartTime(Date.now());
-      
+
       logger.info(COMPONENT_NAME, 'Recording started', {
-        sessionId: SESSION_ID,
+        sessionId,
         timeSlice: env.audio.chunkSize,
         mimeType: recorder.mimeType,
         maxDuration: env.audio.maxDuration,
       });
-      
-      setMediaRecorder(recorder);
-      setIsRecording(true);
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Error accessing microphone', {
-        sessionId: SESSION_ID,
+        sessionId,
         error: error instanceof Error ? error.message : String(error)
       });
     }
-  }, []);
+  };
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive' && sessionId) {
       const duration = Date.now() - startTime;
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
       logger.info(COMPONENT_NAME, 'Recording stopped', {
-        sessionId: SESSION_ID,
+        sessionId,
         duration,
         finalState: mediaRecorder.state
       });
       setIsRecording(false);
     }
-  }, [mediaRecorder, startTime]);
+  }, [mediaRecorder, startTime, sessionId]);
 
   return (
     <div className="flex flex-col items-center gap-4">

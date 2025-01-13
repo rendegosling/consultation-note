@@ -6,12 +6,15 @@ interface LogMessage {
   timestamp: string;
   level: LogLevel;
   component: string;
+  sessionId?: string;
+  chunkNumber?: number;
 }
 
 const formatLog = (logData: LogMessage): string => {
-  const { level, component, message, metadata, timestamp } = logData;
-  return `[${timestamp}] [${level.toUpperCase()}] [${component}] ${message} ${
-    metadata ? JSON.stringify(metadata) : ''
+  const { level, component, message, metadata, timestamp, sessionId, chunkNumber } = logData;
+  const context = sessionId ? `[${sessionId}${chunkNumber ? `:${chunkNumber}` : ''}] ` : '';
+  return `[${timestamp}] [${level.toUpperCase()}] [${component}] ${context}${message} ${
+    metadata ? JSON.stringify(metadata, null, 2) : ''
   }`;
 };
 
@@ -23,6 +26,8 @@ export const logger = {
       timestamp: new Date().toISOString(),
       level: 'info',
       component,
+      sessionId: metadata?.sessionId,
+      chunkNumber: metadata?.chunkNumber,
     };
     console.log(formatLog(logData));
   },
@@ -33,6 +38,8 @@ export const logger = {
       timestamp: new Date().toISOString(),
       level: 'error',
       component,
+      sessionId: metadata?.sessionId,
+      chunkNumber: metadata?.chunkNumber,
     };
     console.error(formatLog(logData));
   }

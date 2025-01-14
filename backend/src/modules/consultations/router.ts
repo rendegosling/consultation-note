@@ -1,10 +1,12 @@
 import express from 'express';
+import multer from 'multer';
 import { ConsultationController } from './controller';
 import { ConsultationService } from './service';
 import { PGConsultationSessionRepository } from './pg-repository';
 import { validateCreateConsultation, validateChunkUpload } from './validation';
 import { S3StorageService } from '../../infrastructure/storage/s3-storage';
 
+const upload = multer({ storage: multer.memoryStorage() });
 export const router = express.Router();
 
 const repository = new PGConsultationSessionRepository();
@@ -20,3 +22,9 @@ router.post('/sessions', controller.createSession.bind(controller));
 router.post('/', validateCreateConsultation, controller.createConsultation.bind(controller));
 router.get('/:id', controller.getConsultation.bind(controller));
 router.patch('/:id/status', controller.updateStatus.bind(controller));
+router.post(
+  '/sessions/:sessionId/chunks',
+  upload.single('chunk'),
+  validateChunkUpload,
+  controller.uploadChunk.bind(controller)
+);

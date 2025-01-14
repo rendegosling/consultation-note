@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
-import { logger } from '@/infrastructure/logging/logger';
+import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 
 const COMPONENT_NAME = 'AudioRecorder';

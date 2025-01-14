@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    platform: linux/arm64
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+
   backend:
     build:
       context: ./backend
@@ -10,6 +27,8 @@ services:
       - "5000:5000"
     env_file:
       - ./backend/.env.local
+    environment:
+      - NODE_ENV=development
     depends_on:
       postgres:
         condition: service_healthy

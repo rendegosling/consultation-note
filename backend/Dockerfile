@@ -12,6 +12,7 @@ RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 # Build the application
 RUN npm run build
@@ -21,16 +22,25 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files and built code
+# Copy all necessary files
 COPY package*.json ./
+COPY tsconfig.json ./
+COPY src/ ./src/
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/scripts ./scripts
 
-# Install production dependencies only
-RUN npm ci --production
+# Install dependencies based on NODE_ENV
+RUN apk add --no-cache netcat-openbsd && \
+    if [ "$NODE_ENV" = "production" ]; then \
+    npm ci --production; \
+    else \
+    npm ci; \
+    fi && \
+    chmod +x ./scripts/start-dev.sh && \
+    chmod +x ./scripts/start-prod.sh
 
 # Environment variables
 ENV PORT=5000
-ENV NODE_ENV=production
 
 # Expose port
 EXPOSE 5000
@@ -39,5 +49,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application based on NODE_ENV
+CMD ["sh", "-c", "if [ \"$NODE_ENV\" = \"production\" ]; then ./scripts/start-prod.sh; else ./scripts/start-dev.sh; fi"]

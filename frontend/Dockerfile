@@ -1,22 +1,21 @@
-FROM --platform=$BUILDPLATFORM node:20-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Add netcat for postgres healthcheck and install tsx globally
-RUN apk add --no-cache netcat-openbsd && \
-    npm install -g tsx
+# Copy package files
+COPY package*.json ./
 
 # Install dependencies
-COPY package*.json ./
 RUN npm install
 
-# Copy source
+# Copy source code and scripts
 COPY . .
 
-# Make start script executable
-COPY scripts/start-dev.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/start-dev.sh
+# Make start scripts executable
+RUN chmod +x ./scripts/start-dev.sh && \
+    chmod +x ./scripts/start-prod.sh
 
 EXPOSE 3000
 
-CMD ["start-dev.sh"]
+# Start the application based on NODE_ENV
+CMD ["sh", "-c", "if [ \"$NODE_ENV\" = \"production\" ]; then ./scripts/start-prod.sh; else ./scripts/start-dev.sh; fi"]

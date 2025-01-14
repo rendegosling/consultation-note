@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { audioChunkSchema } from '@/infrastructure/audio/validators/chunk-upload';
-import { chunkUploadService } from '@/infrastructure/audio/services/ChunkUploadService';
-import { APIResponse } from '@/infrastructure/api/types';
-import { logger } from '@/infrastructure/logging/logger';
+import { audioChunkSchema } from '@/lib/audioSchemaValidator';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
 
 const COMPONENT_NAME = 'ChunkUploadAPI';
 
@@ -41,9 +40,25 @@ export async function POST(
       chunkNumber: validatedData.chunkNumber
     });
 
-    const result = await chunkUploadService.uploadChunk(validatedData);
+    // Create a new FormData to forward to backend
+    const backendFormData = new FormData();
+    backendFormData.append('chunk', validatedData.chunk);
+    backendFormData.append('chunkNumber', String(validatedData.chunkNumber));
+    backendFormData.append('isLastChunk', String(validatedData.isLastChunk));
 
+    const url = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.CHUNKS.UPLOAD(sessionId));
+    const response = await fetch(url, {
+      method: 'POST',
+      body: backendFormData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend responded with status: ${response.status}`);
+    }
+
+    const result = await response.json();
     return NextResponse.json(result, { status: 202 });
+
   } catch (error) {
     logger.error(COMPONENT_NAME, 'API error', {
       error: error instanceof Error ? error.message : String(error),

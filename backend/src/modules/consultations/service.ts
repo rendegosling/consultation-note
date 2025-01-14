@@ -13,7 +13,7 @@ export class ConsultationService {
     try {
       const consultation = await this.repository.createConsultation(request.metadata);
       
-      logger.info(COMPONENT_NAME, 'Consultation created', {
+      logger.info(COMPONENT_NAME, 'Successfully created new consultation', {
         consultationId: consultation.id
       });
 
@@ -30,7 +30,7 @@ export class ConsultationService {
     try {
       await this.repository.updateConsultationStatus(id, status);
       
-      logger.info(COMPONENT_NAME, 'Consultation status updated', {
+      logger.info(COMPONENT_NAME, 'Successfully updated consultation status', {
         consultationId: id,
         status
       });
@@ -47,7 +47,7 @@ export class ConsultationService {
     try {
       const session = await this.repository.createConsultation({});
       
-      logger.info(COMPONENT_NAME, 'Session created', {
+      logger.info(COMPONENT_NAME, 'Successfully created new session', {
         sessionId: session.id
       });
 
@@ -77,6 +77,4 @@ export class ConsultationService {
       throw error;
     }
   }
-}
-
-export const consultationService = new ConsultationService(new ConsultationRepository()); 
+} 

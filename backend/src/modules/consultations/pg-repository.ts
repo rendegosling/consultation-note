@@ -24,13 +24,14 @@ export class PGConsultationSessionRepository implements IConsultationSessionRepo
         .returningAll()
         .executeTakeFirstOrThrow();
 
-      logger.info(COMPONENT_NAME, 'Consultation created in database', {
-        consultationId: consultation.id
+      logger.debug(COMPONENT_NAME, 'Successfully inserted consultation record', {
+        consultationId: consultation.id,
+        status: consultation.status
       });
 
       return this.mapToConsultationSession(consultation);
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Failed to create consultation', {
+      logger.error(COMPONENT_NAME, 'Database error while creating consultation', {
         error: error instanceof Error ? error.message : String(error)
       });
       throw error;
@@ -44,11 +45,14 @@ export class PGConsultationSessionRepository implements IConsultationSessionRepo
         .where('id', '=', id)
         .executeTakeFirst();
 
-      if (!consultation) return null;
+      if (!consultation) {
+        logger.debug(COMPONENT_NAME, 'No consultation found with provided ID', { consultationId: id });
+        return null;
+      }
 
       return this.mapToConsultationSession(consultation);
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Failed to get consultation', {
+      logger.error(COMPONENT_NAME, 'Database error while fetching consultation', {
         consultationId: id,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -56,39 +60,36 @@ export class PGConsultationSessionRepository implements IConsultationSessionRepo
     }
   }
 
-  async updateConsultationStatus(
-    id: string, 
-    status: ConsultationSession['status']
-  ): Promise<void> {
+  async updateConsultationStatus(id: string, status: ConsultationSession['status']): Promise<void> {
     try {
-      await db
+      const result = await db
         .updateTable('consultation_sessions')
-        .set({
-          status,
-        })
+        .set({ status })
         .where('id', '=', id)
         .execute();
 
-      logger.info(COMPONENT_NAME, 'Consultation status updated', {
+      logger.debug(COMPONENT_NAME, 'Successfully updated consultation status', {
         consultationId: id,
-        status
+        status,
+        rowsAffected: result.length
       });
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Failed to update consultation status', {
+      logger.error(COMPONENT_NAME, 'Database error while updating consultation status', {
         consultationId: id,
+        status,
         error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
   }
 
-  private mapToConsultationSession(data: any): ConsultationSession {
+  private mapToConsultationSession(row: any): ConsultationSession {
     return {
-      id: data.id,
-      startedAt: new Date(data.started_at),
-      endedAt: data.ended_at ? new Date(data.ended_at) : undefined,
-      status: data.status,
-      metadata: data.metadata || {}
+      id: row.id,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      status: row.status,
+      metadata: row.metadata
     };
   }
 }

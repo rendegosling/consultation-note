@@ -1,9 +1,11 @@
+import { JsonObject } from "@/infrastructure/database/schema";
+
 export interface ConsultationSession {
   id: string;
   startedAt: Date;
-  endedAt?: Date;
+  endedAt: Date | null;
   status: 'active' | 'completed' | 'error';
-  metadata: Record<string, any>;
+  metadata: JsonObject;
 }
 
 export interface AudioChunk {

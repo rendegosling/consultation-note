@@ -13,7 +13,7 @@ export class ConsultationController {
       const metadata = req.body.metadata || {};
       const consultation = await this.service.createConsultation({ metadata });
       res.status(201).json({ consultation });
-    } catch (error) {
+    } catch {
       throw new AppError(500, 'Failed to create consultation');
     }
   }
@@ -22,11 +22,11 @@ export class ConsultationController {
     try {
       const { id } = req.params;
       const consultation = await this.service.getConsultation(id);
-      
+
       if (!consultation) {
         throw new AppError(404, 'Consultation not found');
       }
-      
+
       res.json({ consultation });
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -38,10 +38,10 @@ export class ConsultationController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      
+
       await this.service.updateStatus(id, status);
       res.status(204).send();
-    } catch (error) {
+    } catch {
       throw new AppError(500, 'Failed to update consultation status');
     }
   }
@@ -49,15 +49,15 @@ export class ConsultationController {
   async createSession(req: Request, res: Response) {
     try {
       const session = await this.service.createSession();
-      
-      res.status(201).json({ 
+
+      res.status(201).json({
         session,
         metadata: {
           requestId: crypto.randomUUID(),
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       });
-    } catch (error) {
+    } catch {
       throw new AppError(500, 'Failed to create session');
     }
   }
@@ -78,7 +78,7 @@ export class ConsultationController {
         isLastChunk: validatedData.isLastChunk,
         size: validatedData.metadata.size,
         type: validatedData.metadata.type,
-        timestamp: validatedData.metadata.timestamp
+        timestamp: validatedData.metadata.timestamp,
       });
 
       // For now, just return a success response
@@ -88,13 +88,13 @@ export class ConsultationController {
           requestId: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
           chunkNumber: validatedData.chunkNumber,
-          isLastChunk: validatedData.isLastChunk
-        }
+          isLastChunk: validatedData.isLastChunk,
+        },
       });
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to process audio chunk', {
         error: error instanceof Error ? error.message : String(error),
-        sessionId: req.params.sessionId
+        sessionId: req.params.sessionId,
       });
 
       if (error instanceof AppError) {

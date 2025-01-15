@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
 import type { CreateSessionResponse } from '@/lib/types';
 
 const COMPONENT_NAME = 'SessionAPI';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   const url = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.SESSIONS.CREATE);
   
   logger.info(COMPONENT_NAME, 'Attempting to create session', {

@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { logger } from '../logging/logger';
 
 export class AppError extends Error {
   constructor(
     public statusCode: number,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = 'AppError';
@@ -15,23 +15,22 @@ export const errorHandler = (
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
 ) => {
   logger.error('ErrorHandler', err.message, {
     stack: err.stack,
     path: req.path,
-    method: req.method
+    method: req.method,
   });
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       status: 'error',
-      message: err.message
+      message: err.message,
     });
   }
 
   return res.status(500).json({
     status: 'error',
-    message: 'Internal server error'
+    message: 'Internal server error',
   });
 };

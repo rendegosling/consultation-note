@@ -54,12 +54,23 @@ const AudioRecorder = () => {
         body: formData,
       });
 
-      logger.info(COMPONENT_NAME, 'Chunk uploaded successfully', {
-        sessionId,
-        chunkNumber,
-        size: chunk.size,
-        isLastChunk,
-      });
+      if (!response.ok) {
+        logger.error(COMPONENT_NAME, 'Failed to upload chunk', {
+          sessionId,
+          chunkNumber,
+          size: chunk.size,
+          isLastChunk,
+          status: response.status,
+          statusText: response.statusText,
+        });
+      } else {
+        logger.info(COMPONENT_NAME, 'Chunk uploaded successfully', {
+          sessionId,
+          chunkNumber,
+          size: chunk.size,
+          isLastChunk,
+        });
+      }
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to upload chunk', {
         sessionId,

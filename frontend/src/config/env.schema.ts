@@ -6,8 +6,4 @@ export const envSchema = z.object({
   NEXT_PUBLIC_MAX_CHUNK_SIZE: z.string().transform(Number),
 });
 
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv extends z.infer<typeof envSchema> {}
-  }
-} 
+export type EnvVariables = z.infer<typeof envSchema>; 

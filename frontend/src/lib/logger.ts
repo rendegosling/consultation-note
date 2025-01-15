@@ -1,5 +1,5 @@
 interface LogMetadata {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 const formatLog = (component: string, message: string, metadata?: LogMetadata) => {

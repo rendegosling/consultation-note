@@ -1,19 +1,35 @@
 import { Kysely, sql } from 'kysely';
 
-export async function up(db: Kysely<any>): Promise<void> {
+interface Database {
+  consultation_sessions: {
+    id: string;
+    started_at: Date;
+    ended_at: Date | null;
+    status: string;
+    metadata: unknown;
+    created_at: Date;
+    updated_at: Date;
+  }
+}
+
+export async function up(db: Kysely<Database>): Promise<void> {
   await db.schema
     .createTable('consultation_sessions')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
     .addColumn('started_at', 'timestamptz', (col) => col.notNull())
     .addColumn('ended_at', 'timestamptz')
-    .addColumn('status', 'text', (col) => 
-      col.notNull().check(sql`status IN ('active', 'completed', 'error')`))
-    .addColumn('metadata', 'jsonb', (col) => 
-      col.notNull().defaultTo(sql`'{}'::jsonb`))
-    .addColumn('created_at', 'timestamptz', (col) => 
-      col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-    .addColumn('updated_at', 'timestamptz', (col) => 
-      col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .addColumn('status', 'text', (col) =>
+      col.notNull().check(sql`status IN ('active', 'completed', 'error')`),
+    )
+    .addColumn('metadata', 'jsonb', (col) =>
+      col.notNull().defaultTo(sql`'{}'::jsonb`),
+    )
+    .addColumn('created_at', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`),
+    )
+    .addColumn('updated_at', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`),
+    )
     .execute();
 
   // Add updated_at trigger
@@ -35,6 +51,6 @@ export async function up(db: Kysely<any>): Promise<void> {
   `.execute(db);
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<Database>): Promise<void> {
   await db.schema.dropTable('consultation_sessions').execute();
-} 
+}

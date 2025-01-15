@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { env } from '@/config/env';
 
 export const audioChunkSchema = z.object({
   chunk: z.instanceof(Blob, { 

@@ -1,23 +1,23 @@
 import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
 
+export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+export type JsonArray = JsonValue[];
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
 export interface Database {
-  consultation_sessions: ConsultationSessionTable;
+  'consultations.consultation_sessions': {
+    id: Generated<string>;
+    started_at: ColumnType<Date, string, never>;
+    ended_at: ColumnType<Date | null, string | null, string | null>;
+    status: 'active' | 'completed' | 'error';
+    metadata: ColumnType<JsonObject, JsonObject, JsonObject>;
+    created_at: Generated<Date>;
+    updated_at: Generated<Date>;
+  }
 }
 
-export interface ConsultationSessionTable {
-  id: string;
-  started_at: ColumnType<Date, string, string>;
-  ended_at: ColumnType<Date | null, string | null, string | null>;
-  status: 'active' | 'completed' | 'error';
-  metadata: ColumnType<JsonObject, JsonObject, JsonObject>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
-}
-
-// Types for CRUD operations
-export type ConsultationSession = Selectable<ConsultationSessionTable>;
-export type NewConsultationSession = Insertable<ConsultationSessionTable>;
-export type ConsultationSessionUpdate = Updateable<ConsultationSessionTable>;
-
-// Utility types
-export type JsonObject = Record<string, any>;
+export type ConsultationRow = Selectable<Database['consultations.consultation_sessions']>;
+export type NewConsultation = Insertable<Database['consultations.consultation_sessions']>;
+export type ConsultationUpdate = Updateable<Database['consultations.consultation_sessions']>;

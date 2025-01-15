@@ -19,12 +19,16 @@ const service = new ConsultationService(repository);
 const controller = new ConsultationController(service, storageService);
 
 router.post('/sessions', controller.createSession.bind(controller));
-router.post('/', validateCreateConsultation, controller.createConsultation.bind(controller));
+router.post(
+  '/',
+  validateCreateConsultation,
+  controller.createConsultation.bind(controller),
+);
 router.get('/:id', controller.getConsultation.bind(controller));
 router.patch('/:id/status', controller.updateStatus.bind(controller));
 router.post(
   '/sessions/:sessionId/chunks',
   upload.single('chunk'),
   validateChunkUpload,
-  controller.uploadChunk.bind(controller)
+  controller.uploadChunk.bind(controller),
 );

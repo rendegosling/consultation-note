@@ -1,5 +1,4 @@
 import { ValidatedAudioChunk } from '../infrastructure/audio/validators/chunk-upload';
-import { Multer } from 'multer';
 
 declare global {
   namespace Express {
@@ -10,4 +9,4 @@ declare global {
   }
 }
 
-export {}; 
+export {};

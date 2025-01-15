@@ -8,7 +8,7 @@ const dialect = new PostgresDialect({
     database: process.env.POSTGRES_DB,
     user: process.env.POSTGRES_USER,
     password: process.env.POSTGRES_PASSWORD,
-  })
+  }),
 });
 
 export const db = new Kysely<Database>({

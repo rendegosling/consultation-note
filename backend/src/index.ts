@@ -31,4 +31,4 @@ app.listen(port, () => {
 process.on('unhandledRejection', (error: Error) => {
   logger.error('UnhandledRejection', error.message, { stack: error.stack });
   process.exit(1);
-}); 
+});

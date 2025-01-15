@@ -16,12 +16,12 @@ const pool = new Pool({
 pool.on('error', (err) => {
   logger.error(COMPONENT_NAME, 'Unexpected database error', {
     error: err.message,
-    stack: err.stack
+    stack: err.stack,
   });
 });
 
 export const db = new Kysely<Database>({
   dialect: new PostgresDialect({
-    pool
-  })
-}); 
+    pool,
+  }),
+});

@@ -13,26 +13,21 @@ type DBConsultationRow = Selectable<Database['consultations.consultation_session
 export class PGConsultationSessionRepository implements IConsultationSessionRepository {
   async createConsultation(metadata: JsonObject = {}): Promise<ConsultationSession> {
     try {
-      const consultation = await db
-        .insertInto('consultation_sessions')
+      const result = await db
+        .insertInto('consultations.consultation_sessions')
         .values({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
+          status: 'active' as const,
+          metadata,
           started_at: sql`CURRENT_TIMESTAMP`,
-          status: 'active',
-          metadata
         })
         .returningAll()
         .executeTakeFirstOrThrow();
 
-      logger.debug(COMPONENT_NAME, 'Successfully inserted consultation record', {
-        consultationId: consultation.id,
-        status: consultation.status
-      });
-
-      return this.mapToConsultationSession(consultation);
+      return this.mapToConsultationSession(result);
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Database error while creating consultation', {
-        error: error instanceof Error ? error.message : String(error)
+      logger.error(COMPONENT_NAME, 'Failed to create consultation', {
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -41,29 +36,39 @@ export class PGConsultationSessionRepository implements IConsultationSessionRepo
   async getConsultation(id: string): Promise<ConsultationSession | null> {
     try {
       const consultation = await db
-        .selectFrom('consultation_sessions')
+        .selectFrom('consultations.consultation_sessions')
+        .selectAll()
         .where('id', '=', id)
         .executeTakeFirst();
 
       if (!consultation) {
-        logger.debug(COMPONENT_NAME, 'No consultation found with provided ID', { consultationId: id });
+        logger.debug(COMPONENT_NAME, 'No consultation found with provided ID', {
+          consultationId: id,
+        });
         return null;
       }
 
-      return this.mapToConsultationSession(consultation);
+      return this.mapToConsultationSession(consultation as DBConsultationRow);
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Database error while fetching consultation', {
-        consultationId: id,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      logger.error(
+        COMPONENT_NAME,
+        'Database error while fetching consultation',
+        {
+          consultationId: id,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       throw error;
     }
   }
 
-  async updateConsultationStatus(id: string, status: ConsultationSession['status']): Promise<void> {
+  async updateConsultationStatus(
+    id: string,
+    status: ConsultationSession['status'],
+  ): Promise<void> {
     try {
       const result = await db
-        .updateTable('consultation_sessions')
+        .updateTable('consultations.consultation_sessions')
         .set({ status })
         .where('id', '=', id)
         .execute();
@@ -71,25 +76,29 @@ export class PGConsultationSessionRepository implements IConsultationSessionRepo
       logger.debug(COMPONENT_NAME, 'Successfully updated consultation status', {
         consultationId: id,
         status,
-        rowsAffected: result.length
+        rowsAffected: result.length,
       });
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Database error while updating consultation status', {
-        consultationId: id,
-        status,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      logger.error(
+        COMPONENT_NAME,
+        'Database error while updating consultation status',
+        {
+          consultationId: id,
+          status,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       throw error;
     }
   }
 
-  private mapToConsultationSession(row: any): ConsultationSession {
+  private mapToConsultationSession(row: DBConsultationRow): ConsultationSession {
     return {
       id: row.id,
       startedAt: row.started_at,
       endedAt: row.ended_at,
       status: row.status,
-      metadata: row.metadata
+      metadata: row.metadata,
     };
   }
 }

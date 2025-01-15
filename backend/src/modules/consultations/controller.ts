@@ -1,12 +1,17 @@
 import { Request, Response } from 'express';
 import { ConsultationService } from './service';
+import { StorageService } from '../../infrastructure/storage/types';
 import { AppError } from '../../infrastructure/middleware/error-handler';
 import { logger } from '../../infrastructure/logging/logger';
+import crypto from 'crypto';
 
 const COMPONENT_NAME = 'ConsultationController';
 
 export class ConsultationController {
-  constructor(private service: ConsultationService) {}
+  constructor(
+    private service: ConsultationService,
+    private storageService: StorageService
+  ) {}
 
   async createConsultation(req: Request, res: Response) {
     try {
@@ -72,25 +77,77 @@ export class ConsultationController {
         throw new AppError(400, 'Missing required chunk data');
       }
 
-      logger.info(COMPONENT_NAME, 'Received audio chunk', {
+      const requestId = crypto.randomUUID();
+
+      logger.info(COMPONENT_NAME, 'Processing audio chunk', {
+        requestId,
+        sessionId,
+        chunkNumber: validatedData.chunkNumber,
+        size: validatedData.metadata.size,
+      });
+
+      // 1. Upload to S3
+      const s3Key = `consultations/${sessionId}/chunks/${validatedData.chunkNumber}.wav`;
+      logger.info(COMPONENT_NAME, 'Starting S3 upload', {
+        requestId,
+        sessionId,
+        s3Key,
+        chunkNumber: validatedData.chunkNumber,
+      });
+
+      await this.storageService.uploadFile(s3Key, file.buffer, {
+        contentType: 'audio/wav',
+        chunkNumber: validatedData.chunkNumber,
+        timestamp: validatedData.metadata.timestamp,
+        isLastChunk: String(validatedData.isLastChunk),
+        requestId,
+      });
+
+      logger.info(COMPONENT_NAME, 'S3 upload completed', {
+        requestId,
+        sessionId,
+        s3Key,
+      });
+
+      // 2. Create chunk record (to be implemented)
+      // logger.info(COMPONENT_NAME, 'Recording chunk in database', {
+      //   requestId,
+      //   sessionId,
+      //   chunkNumber: validatedData.chunkNumber,
+      // });
+      
+      // await this.service.recordChunk({
+      //   sessionId,
+      //   chunkNumber: validatedData.chunkNumber,
+      //   s3Key,
+      //   requestId,
+      //   metadata: {
+      //     size: validatedData.metadata.size,
+      //     type: validatedData.metadata.type,
+      //     timestamp: validatedData.metadata.timestamp,
+      //     isLastChunk: validatedData.isLastChunk,
+      //   }
+      // });
+
+      // 3. Return accepted response
+      logger.info(COMPONENT_NAME, 'Chunk processing accepted', {
+        requestId,
         sessionId,
         chunkNumber: validatedData.chunkNumber,
         isLastChunk: validatedData.isLastChunk,
-        size: validatedData.metadata.size,
-        type: validatedData.metadata.type,
-        timestamp: validatedData.metadata.timestamp,
       });
 
-      // For now, just return a success response
       res.status(202).json({
         success: true,
         metadata: {
-          requestId: crypto.randomUUID(),
+          requestId,
           timestamp: new Date().toISOString(),
           chunkNumber: validatedData.chunkNumber,
           isLastChunk: validatedData.isLastChunk,
+          status: 'uploaded' // Changed from 'processing' to reflect actual state
         },
       });
+
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to process audio chunk', {
         error: error instanceof Error ? error.message : String(error),

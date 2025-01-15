@@ -96,6 +96,7 @@ services:
     entrypoint: [""]
     command: >
       sh -c '
+        ls -la &&
         terraform init &&
         terraform apply -auto-approve -var-file="dev.tfvars"
       '

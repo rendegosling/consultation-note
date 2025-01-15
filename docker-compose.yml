@@ -32,12 +32,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      terraform:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 40s
     networks:
       - app_network
 
@@ -59,22 +63,49 @@ services:
       - app_network
 
   localstack:
-    image: localstack/localstack:3.0
-    platform: linux/arm64
+    image: localstack/localstack
     ports:
       - "4566:4566"
+      - "8080:8080"
     environment:
-      - SERVICES=s3
-      - DEFAULT_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - DOCKER_HOST=unix:///var/run/docker.sock
-      - DEBUG=1
-      - PERSISTENCE=0
+      - SERVICES=s3,ssm
+      - LOCALSTACK_WEB_UI=true
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${PWD}/terraform:/terraform"
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
     networks:
       - app_network
+
+  terraform:
+    image: hashicorp/terraform:latest
+    volumes:
+      - "${PWD}/terraform:/terraform"
+    working_dir: /terraform
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=ap-southeast-2
+    depends_on:
+      localstack:
+        condition: service_healthy
+    entrypoint: [""]
+    command: >
+      sh -c '
+        terraform init &&
+        terraform apply -auto-approve -var-file="dev.tfvars"
+      '
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /terraform/.terraform.lock.hcl"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:

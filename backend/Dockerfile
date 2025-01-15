@@ -18,9 +18,20 @@ COPY scripts/ ./scripts/
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM python:3.11-slim
+
+# Install Node.js and netcat
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-traditional \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Install awslocal
+RUN pip3 install awscli-local
 
 # Copy all necessary files
 COPY package*.json ./
@@ -30,8 +41,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 
 # Install dependencies based on NODE_ENV
-RUN apk add --no-cache netcat-openbsd && \
-    if [ "$NODE_ENV" = "production" ]; then \
+RUN if [ "$NODE_ENV" = "production" ]; then \
     npm ci --production; \
     else \
     npm ci; \

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
 
@@ -12,27 +12,12 @@ const AudioRecorder = () => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
 
-  useEffect(() => {
-    const createSession = async () => {
-      try {
-        const response = await fetch('/api/sessions', {
-          method: 'POST'
-        });
-        const data = await response.json();
-        setSessionId(data.session.id);
-      } catch (error) {
-        logger.error(COMPONENT_NAME, 'Failed to create session', {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    };
-
-    createSession();
-  }, []);
-
-  const uploadChunk = async (chunk: Blob, chunkNumber: number, isLastChunk: boolean) => {
+  const uploadChunk = async (chunk: Blob, chunkNumber: number, isLastChunk: boolean, sessionId: string) => {
     if (!sessionId) {
-      logger.error(COMPONENT_NAME, 'No session ID available for upload');
+      logger.error(COMPONENT_NAME, 'Session ID is required for upload', {
+        chunkNumber,
+        isLastChunk
+      });
       return;
     }
 
@@ -55,21 +40,7 @@ const AudioRecorder = () => {
       });
 
       if (!response.ok) {
-        logger.error(COMPONENT_NAME, 'Failed to upload chunk', {
-          sessionId,
-          chunkNumber,
-          size: chunk.size,
-          isLastChunk,
-          status: response.status,
-          statusText: response.statusText,
-        });
-      } else {
-        logger.info(COMPONENT_NAME, 'Chunk uploaded successfully', {
-          sessionId,
-          chunkNumber,
-          size: chunk.size,
-          isLastChunk,
-        });
+        throw new Error(`Upload failed with status: ${response.status}`);
       }
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to upload chunk', {
@@ -82,33 +53,49 @@ const AudioRecorder = () => {
   };
 
   const startRecording = async () => {
-    if (!sessionId) {
-      logger.error(COMPONENT_NAME, 'Session ID is not available');
-      return;
-    }
-
     try {
+      // Create session first
+      const response = await fetch('/api/sessions', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      // Log the response to see its structure
+      logger.info(COMPONENT_NAME, 'Session response received', { 
+        responseData: data 
+      });
+
+      // Get ID from the correct path in response
+      const sessionId = data.id || data.session?.id;
+      
+      if (!sessionId) {
+        throw new Error('No session ID received from server');
+      }
+
+      logger.info(COMPONENT_NAME, 'Session created', { sessionId });
+
+      // Set session ID first
+      setSessionId(sessionId);
+
+      // Setup recorder with captured session ID
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      setStartTime(Date.now());
-
-      logger.info(COMPONENT_NAME, 'Recording started', {
-        sessionId
-      });
 
       let chunkNumber = 0;
       recorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           chunkNumber++;
           const isLastChunk = recorder.state === 'inactive';
-          await uploadChunk(event.data, chunkNumber, isLastChunk);
+          await uploadChunk(event.data, chunkNumber, isLastChunk, sessionId);
         }
       };
 
-      recorder.start(env.audio.chunkSize);
+      // Update other states
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setStartTime(Date.now());
 
+      recorder.start(env.audio.chunkSize);
       logger.info(COMPONENT_NAME, 'Recording started', {
         sessionId,
         timeSlice: env.audio.chunkSize,
@@ -116,26 +103,59 @@ const AudioRecorder = () => {
         maxDuration: env.audio.maxDuration,
       });
     } catch (error) {
-      logger.error(COMPONENT_NAME, 'Error accessing microphone', {
-        sessionId,
+      logger.error(COMPONENT_NAME, 'Failed to start recording', {
         error: error instanceof Error ? error.message : String(error)
       });
+      setIsRecording(false);
+      setSessionId(null);
     }
   };
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive' && sessionId) {
-      const duration = Date.now() - startTime;
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      logger.info(COMPONENT_NAME, 'Recording stopped', {
-        sessionId,
-        duration,
-        finalState: mediaRecorder.state
+    logger.info(COMPONENT_NAME, 'Stop recording triggered', {
+      hasMediaRecorder: !!mediaRecorder,
+      mediaRecorderState: mediaRecorder?.state,
+      hasSessionId: !!sessionId,
+      isRecording,
+      currentSessionId: sessionId
+    });
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try {
+        logger.info(COMPONENT_NAME, 'Stopping recording', {
+          sessionId,
+          duration: Date.now() - startTime
+        });
+
+        // Stop recording - this will trigger one final ondataavailable event
+        mediaRecorder.stop();
+        
+        // Stop all audio tracks
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+
+        // Clear states
+        setIsRecording(false);
+        setMediaRecorder(null);
+        setSessionId(null);
+        setStartTime(0);
+
+        logger.info(COMPONENT_NAME, 'Recording stopped successfully');
+
+      } catch (error) {
+        logger.error(COMPONENT_NAME, 'Error stopping recording', {
+          sessionId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    } else {
+      logger.warn(COMPONENT_NAME, 'Stop recording conditions not met', {
+        hasMediaRecorder: !!mediaRecorder,
+        mediaRecorderState: mediaRecorder?.state,
+        hasSessionId: !!sessionId,
+        currentSessionId: sessionId
       });
-      setIsRecording(false);
     }
-  }, [mediaRecorder, startTime, sessionId]);
+  }, [mediaRecorder, sessionId, startTime, isRecording]);
 
   return (
     <div className="flex flex-col items-center gap-4">

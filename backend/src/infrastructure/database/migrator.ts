@@ -2,7 +2,7 @@ import { db } from './client';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Migrator, Migration } from 'kysely';
-import { logger } from '../logging/logger';
+import { logger } from '@/infrastructure/logging';
 
 const COMPONENT_NAME = 'DatabaseMigrator';
 
@@ -30,7 +30,7 @@ async function migrateToLatest() {
           if (file.endsWith('.ts')) {
             const migration = await import(path.join(migrationsPath, file));
             migrations[file.replace('.ts', '')] = migration;
-            logger.trace(COMPONENT_NAME, 'Loaded migration file', { file });
+            logger.debug(COMPONENT_NAME, 'Loaded migration file', { file });
           }
         }
 

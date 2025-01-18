@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Database } from './schema';
-import { logger } from '../logging/logger';
+import { logger } from '@/infrastructure/logging';
 
 const COMPONENT_NAME = 'Database';
 

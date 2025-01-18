@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { router as consultationRouter } from './modules/consultations/router';
-import { errorHandler } from './infrastructure/middleware/error-handler';
-import { logger } from './infrastructure/logging/logger';
+import { errorHandler } from './infrastructure/middleware';
+import { logger } from '@/infrastructure/logging';
 
 const app = express();
 const port = process.env.PORT || 5000;

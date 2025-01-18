@@ -1,50 +1,50 @@
 import express from 'express';
 import multer from 'multer';
 import { DynamoDB } from 'aws-sdk';
-import { ConsultationController } from './controller';
-import { ConsultationService } from './service';
-import { DynamoDBConsultationSessionRepository } from './dynamodb-repository';
+import { Consultations } from './controller';
 import { validateCreateConsultation, validateChunkUpload } from './validation';
-import { S3StorageService } from '../../infrastructure/storage/s3-storage';
-import { env } from '../../config/env';
+import { config } from '@/config';
+import { logger } from '@/infrastructure/logging';
+import { storageService } from '@/infrastructure/storage';
+import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation-session.repository';
 
+const COMPONENT_NAME = 'ConsultationRouter';
 const upload = multer({ storage: multer.memoryStorage() });
 export const router = express.Router();
 
 // Initialize DynamoDB client
 const dynamoDB = new DynamoDB.DocumentClient({
-  region: env.aws.region,
-  endpoint: env.aws.endpoint,
-  credentials: env.aws.credentials
+  region: config.aws.region,
+  endpoint: config.aws.endpoint || 'http://localhost:4566', // LocalStack default
+  credentials: {
+    accessKeyId: 'test',
+    secretAccessKey: 'test'
+  }
 });
 
-// Initialize services
+// Initialize repository and controller
 const repository = new DynamoDBConsultationSessionRepository(
-  env.aws.dynamodb.tableName,
-  dynamoDB
+  dynamoDB,
+  config.aws.dynamodb.tableName
 );
-
-const storageService = new S3StorageService({
-  bucket: 'dev-consultations-audio',
-  region: env.aws.region,
-  endpoint: env.aws.endpoint
-});
-
-const service = new ConsultationService(repository);
-const controller = new ConsultationController(service, storageService);
+const controller = new Consultations.Controller(repository, storageService);
 
 // Routes
-router.post('/sessions', controller.createSession.bind(controller));
-router.post(
-  '/',
-  validateCreateConsultation,
-  controller.createConsultation.bind(controller),
+router.post('/sessions', 
+  validateCreateConsultation, 
+  controller.createConsultation.bind(controller)
 );
-router.get('/:id', controller.getConsultation.bind(controller));
-router.patch('/:id/status', controller.updateStatus.bind(controller));
-router.post(
-  '/sessions/:sessionId/chunks',
+
+router.get('/sessions/:id', 
+  controller.getConsultation.bind(controller)
+);
+
+router.post('/sessions/:id/chunks',
   upload.single('chunk'),
   validateChunkUpload,
-  controller.uploadChunk.bind(controller),
+  controller.uploadChunk.bind(controller)
+);
+
+router.patch('/sessions/:id/status',
+  controller.updateStatus.bind(controller)
 );

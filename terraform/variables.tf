@@ -15,3 +15,9 @@ variable "bucket_name" {
   type        = string
   default     = "consultations-audio"
 }
+
+variable "table_name" {
+  description = "Name of the DynamoDB table for consultation sessions"
+  type        = string
+  default     = "consultation-sessions"
+}

@@ -1,163 +1,174 @@
 import { Request, Response } from 'express';
-import { ConsultationService } from './service';
-import { StorageService } from '../../infrastructure/storage/types';
-import { AppError } from '../../infrastructure/middleware/error-handler';
-import { logger } from '../../infrastructure/logging/logger';
+import { StorageService } from '@/infrastructure/storage';
+import { AppError } from '@/infrastructure/middleware';
+import { logger } from '@/infrastructure/logging';
 import crypto from 'crypto';
+import { ConsultationSessionRepository } from '@/modules/consultations/repository';
+import { ConsultationSession } from '@/modules/consultations/models';
+import { ConsultationNotFound } from '@/modules/consultations/errors';
+import { CreateConsultationResponse } from './dtos';
+import { AudioChunkUploadFailed } from '@/modules/consultations/errors';
 
-const COMPONENT_NAME = 'ConsultationController';
+export namespace Consultations {
+  export class Controller {
+    private readonly COMPONENT_NAME = 'ConsultationController';
 
-export class ConsultationController {
-  constructor(
-    private service: ConsultationService,
-    private storageService: StorageService
-  ) {}
+    constructor(
+      private repository: ConsultationSessionRepository,
+      private storageService: StorageService
+    ) {}
 
-  async createConsultation(req: Request, res: Response) {
-    try {
-      const metadata = req.body.metadata || {};
-      const consultation = await this.service.createConsultation({ metadata });
-      res.status(201).json({ consultation });
-    } catch {
-      throw new AppError(500, 'Failed to create consultation');
+    async createConsultation(req: Request, res: Response) {
+      try {
+        const metadata = req.body.metadata || {};
+        const consultation = await this.repository.createConsultation(metadata);
+        
+        // Map domain model to DTO
+        const response: CreateConsultationResponse = {
+          session: consultation.toJSON()
+        };
+
+        logger.info(this.COMPONENT_NAME, 'Consultation created', {
+          id: consultation.toJSON().id
+        });
+
+        res.status(201).json(response);
+      } catch (error) {
+        logger.error(this.COMPONENT_NAME, 'Failed to create consultation', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw new AppError(500, 'Failed to create consultation');
+      }
     }
-  }
 
-  async getConsultation(req: Request, res: Response) {
-    try {
+    async getConsultation(req: Request, res: Response) {
+      try {
+        const { id } = req.params;
+        const consultation = await this.repository.findById(id);
+
+        if (!consultation) {
+          throw new AppError(404, 'Consultation not found');
+        }
+
+        res.json({ consultation });
+      } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError(500, 'Failed to get consultation');
+      }
+    }
+
+    async updateStatus(req: Request, res: Response) {
+      try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        await this.repository.updateConsultationStatus(id, status);
+        res.status(204).send();
+      } catch {
+        throw new AppError(500, 'Failed to update consultation status');
+      }
+    }
+
+    async createSession(req: Request, res: Response) {
+      try {
+        const session = await this.repository.createConsultation();
+
+        res.status(201).json({
+          session,
+          metadata: {
+            requestId: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch {
+        throw new AppError(500, 'Failed to create session');
+      }
+    }
+
+    async uploadChunk(req: Request, res: Response): Promise<Response> {
       const { id } = req.params;
-      const consultation = await this.service.getConsultation(id);
+      try {
+        logger.debug(this.COMPONENT_NAME, 'Processing chunk request', { 
+          id,
+          params: req.params,
+          path: req.path,
+          method: req.method
+        });
 
-      if (!consultation) {
-        throw new AppError(404, 'Consultation not found');
+        const consultation = await this.repository.findById(id);
+        if (!consultation) {
+          throw new ConsultationNotFound(id);
+        }
+
+        const { chunkNumber, isLastChunk } = req.validatedChunk!;
+        const file = req.file!;
+
+        // 1. Generate and upload to S3
+        const s3Key = `sessions/${id}/chunks/${chunkNumber}`;
+        logger.debug(this.COMPONENT_NAME, 'Uploading to S3', { 
+          sessionId: id, 
+          chunkNumber, 
+          s3Key 
+        });
+
+        try {
+          await this.storageService.uploadFile(s3Key, file.buffer, {
+            contentType: file.mimetype,
+            chunkNumber: String(chunkNumber),
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          logger.error(this.COMPONENT_NAME, 'S3 upload failed', {
+            sessionId: id,
+            chunkNumber,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          throw new AudioChunkUploadFailed(id, chunkNumber);
+        }
+
+        // 2. Update session with chunk info
+        logger.debug(this.COMPONENT_NAME, 'Updating session with chunk info', {
+          sessionId: id,
+          chunkNumber,
+          isLastChunk
+        });
+
+        consultation.addAudioChunk({
+          chunkNumber,
+          s3Key,
+          isLastChunk,
+          metadata: {
+            size: file.size,
+            type: file.mimetype,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        await this.repository.save(consultation);
+
+        logger.info(this.COMPONENT_NAME, 'Audio chunk processed', {
+          sessionId: id,
+          chunkNumber,
+          isLastChunk
+        });
+
+        return res.status(202).json({
+          status: 'success',
+          data: { sessionId: id }
+        });
+
+      } catch (error) {
+        logger.error(this.COMPONENT_NAME, 'Failed to process audio chunk', {
+          sessionId: id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        
+        if (error instanceof ConsultationNotFound || 
+            error instanceof AudioChunkUploadFailed) {
+          throw error;
+        }
+        throw new AudioChunkUploadFailed(id, req.validatedChunk?.chunkNumber || 0);
       }
-
-      res.json({ consultation });
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      throw new AppError(500, 'Failed to get consultation');
-    }
-  }
-
-  async updateStatus(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      await this.service.updateStatus(id, status);
-      res.status(204).send();
-    } catch {
-      throw new AppError(500, 'Failed to update consultation status');
-    }
-  }
-
-  async createSession(req: Request, res: Response) {
-    try {
-      const session = await this.service.createSession();
-
-      res.status(201).json({
-        session,
-        metadata: {
-          requestId: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      });
-    } catch {
-      throw new AppError(500, 'Failed to create session');
-    }
-  }
-
-  async uploadChunk(req: Request, res: Response) {
-    try {
-      const { sessionId } = req.params;
-      const file = req.file;
-      const validatedData = req.validatedChunk;
-
-      if (!file || !validatedData) {
-        throw new AppError(400, 'Missing required chunk data');
-      }
-
-      const requestId = crypto.randomUUID();
-
-      logger.info(COMPONENT_NAME, 'Processing audio chunk', {
-        requestId,
-        sessionId,
-        chunkNumber: validatedData.chunkNumber,
-        size: validatedData.metadata.size,
-      });
-
-      // 1. Upload to S3
-      const s3Key = `consultations/${sessionId}/chunks/${validatedData.chunkNumber}.wav`;
-      logger.info(COMPONENT_NAME, 'Starting S3 upload', {
-        requestId,
-        sessionId,
-        s3Key,
-        chunkNumber: validatedData.chunkNumber,
-      });
-
-      await this.storageService.uploadFile(s3Key, file.buffer, {
-        contentType: 'audio/wav',
-        chunkNumber: validatedData.chunkNumber,
-        timestamp: validatedData.metadata.timestamp,
-        isLastChunk: String(validatedData.isLastChunk),
-        requestId,
-      });
-
-      logger.info(COMPONENT_NAME, 'S3 upload completed', {
-        requestId,
-        sessionId,
-        s3Key,
-      });
-
-      // 2. Create chunk record (to be implemented)
-      // logger.info(COMPONENT_NAME, 'Recording chunk in database', {
-      //   requestId,
-      //   sessionId,
-      //   chunkNumber: validatedData.chunkNumber,
-      // });
-      
-      // await this.service.recordChunk({
-      //   sessionId,
-      //   chunkNumber: validatedData.chunkNumber,
-      //   s3Key,
-      //   requestId,
-      //   metadata: {
-      //     size: validatedData.metadata.size,
-      //     type: validatedData.metadata.type,
-      //     timestamp: validatedData.metadata.timestamp,
-      //     isLastChunk: validatedData.isLastChunk,
-      //   }
-      // });
-
-      // 3. Return accepted response
-      logger.info(COMPONENT_NAME, 'Chunk processing accepted', {
-        requestId,
-        sessionId,
-        chunkNumber: validatedData.chunkNumber,
-        isLastChunk: validatedData.isLastChunk,
-      });
-
-      res.status(202).json({
-        success: true,
-        metadata: {
-          requestId,
-          timestamp: new Date().toISOString(),
-          chunkNumber: validatedData.chunkNumber,
-          isLastChunk: validatedData.isLastChunk,
-          status: 'uploaded' // Changed from 'processing' to reflect actual state
-        },
-      });
-
-    } catch (error) {
-      logger.error(COMPONENT_NAME, 'Failed to process audio chunk', {
-        error: error instanceof Error ? error.message : String(error),
-        sessionId: req.params.sessionId,
-      });
-
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError(500, 'Failed to process audio chunk');
     }
   }
 }

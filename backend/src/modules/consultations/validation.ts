@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../../infrastructure/middleware/error-handler';
+import { AppError } from '@/infrastructure/middleware';
 
 // Constants should come from environment variables
 const MAX_CHUNK_SIZE = process.env.MAX_CHUNK_SIZE || 2 * 1024 * 1024; // 2MB default

@@ -31,7 +31,7 @@ resource "aws_ssm_parameter" "bucket_name" {
 
 # DynamoDB table for consultation sessions
 resource "aws_dynamodb_table" "consultation_sessions" {
-  name           = "${var.environment}-consultation-sessions"
+  name           = "${var.environment}-${var.table_name}"
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "id"
 
@@ -46,9 +46,9 @@ resource "aws_dynamodb_table" "consultation_sessions" {
   }
 
   global_secondary_index {
-    name               = "StatusIndex"
-    hash_key          = "status"
-    projection_type    = "ALL"
+    name            = "StatusIndex"
+    hash_key        = "status"
+    projection_type = "ALL"
   }
 
   tags = {

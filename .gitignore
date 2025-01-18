@@ -81,15 +81,16 @@ Temporary Items
 .env.production.local
 
 # Terraform
-.terraform/
-.terraform.lock.hcl
-terraform.tfstate
-terraform.tfstate.backup
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
 *.tfvars
 *.tfvars.json
 .terraformrc
 terraform.rc
 .terraform.d/
+!terraform/dev.tfvars  # Move this exception after all Terraform rules
 
 # LocalStack
 .localstack/

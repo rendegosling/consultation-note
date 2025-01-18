@@ -1,4 +1,4 @@
-import { PGConsultationSessionRepository } from './pg-repository';
+import { PGConsultationSessionRepository } from './postgresql-repository';
 import { ConsultationSession, CreateConsultationRequest, IConsultationSessionRepository } from './types';
 import { logger } from '../../infrastructure/logging/logger';
 

@@ -1,8 +1,8 @@
 # List root level
-docker-compose exec localstack awslocal s3 ls s3://dev-consultations-audio/
+docker compose exec localstack awslocal s3 ls s3://dev-consultations-audio/
 
 # List specific consultation
-docker-compose exec localstack awslocal s3 ls s3://dev-consultations-audio/consultations/
+docker compose exec localstack awslocal s3 ls s3://dev-consultations-audio/consultations/
 
 # Current structure:
 //dev-consultations-audio/

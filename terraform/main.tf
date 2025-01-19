@@ -14,26 +14,25 @@ provider "aws" {
     s3       = "http://localstack:4566"
     ssm      = "http://localstack:4566"
     dynamodb = "http://localstack:4566"
+    ecr      = "http://localstack:4566"
+    iam      = "http://localstack:4566"
+    lambda   = "http://localstack:4566"
+    sts      = "http://localstack:4566"
   }
 }
 
 # S3 bucket for audio storage
 resource "aws_s3_bucket" "audio_storage" {
-  bucket = "${var.environment}-${var.bucket_name}"
-}
-
-# SSM parameters
-resource "aws_ssm_parameter" "bucket_name" {
-  name  = "/${var.environment}/storage/bucket"
-  type  = "String"
-  value = aws_s3_bucket.audio_storage.id
+  bucket = "${var.environment}-consultations-audio"
 }
 
 # DynamoDB table for consultation sessions
 resource "aws_dynamodb_table" "consultation_sessions" {
-  name           = "${var.environment}-${var.table_name}"
+  name           = "${var.environment}-consultation-sessions"
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "id"
+  stream_enabled = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
 
   attribute {
     name = "id"
@@ -56,9 +55,51 @@ resource "aws_dynamodb_table" "consultation_sessions" {
   }
 }
 
-# Add SSM parameter for DynamoDB table name
-resource "aws_ssm_parameter" "dynamodb_table" {
-  name  = "/${var.environment}/storage/dynamodb-table"
-  type  = "String"
-  value = aws_dynamodb_table.consultation_sessions.name
+# IAM Role for Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.environment}-process-chunks-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
 }
+
+# Lambda Function
+resource "aws_lambda_function" "process_chunks" {
+  function_name = "${var.environment}-process-chunks"
+  handler       = "lambda.handler"
+  runtime       = "nodejs20.x"
+  role          = aws_iam_role.lambda_role.arn
+  timeout       = 30
+  
+  s3_bucket = "lambda-artifacts"
+  s3_key    = "process-chunks.zip"
+
+  environment {
+    variables = {
+      AWS_REGION = var.region
+      AWS_ENDPOINT = "http://localhost:4566"
+      DYNAMODB_TABLE = aws_dynamodb_table.consultation_sessions.name
+      S3_BUCKET = aws_s3_bucket.audio_storage.id
+      NODE_ENV = var.environment
+    }
+  }
+}
+
+# Event Source Mapping
+resource "aws_lambda_event_source_mapping" "dynamodb_stream" {
+  event_source_arn  = aws_dynamodb_table.consultation_sessions.stream_arn
+  function_name     = aws_lambda_function.process_chunks.arn
+  starting_position = "LATEST"
+  batch_size        = 1
+}
+

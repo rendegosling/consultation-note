@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { DynamoDB } from 'aws-sdk';
-import { Consultations } from './controller';
+import { ConsultationController } from './controller';
 import { validateCreateConsultation, validateChunkUpload } from './validation';
 import { config } from '@/config';
 import { logger } from '@/infrastructure/logging';
@@ -27,7 +27,7 @@ const repository = new DynamoDBConsultationSessionRepository(
   dynamoDB,
   config.aws.dynamodb.tableName
 );
-const controller = new Consultations.Controller(repository, storageService);
+const controller = new ConsultationController(repository, storageService);
 
 // Routes
 router.post('/sessions', 

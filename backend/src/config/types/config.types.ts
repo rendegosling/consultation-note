@@ -24,6 +24,18 @@ export interface AwsConfig {
   export interface AppConfig {
     port: number;
     environment: 'development' | 'staging' | 'production';
-    aws: AwsConfig;
-    database: DatabaseConfig;
+    aws: {
+      region: string;
+      endpoint?: string;
+      credentials?: {
+        accessKeyId: string;
+        secretAccessKey: string;
+      };
+      dynamodb: {
+        tableName: string;
+      };
+      s3: {
+        bucket: string;
+      };
+    };
   }

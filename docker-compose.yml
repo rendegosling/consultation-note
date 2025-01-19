@@ -33,8 +33,6 @@ services:
     environment:
       - NODE_ENV=development
     depends_on:
-      postgres:
-        condition: service_healthy
       terraform:
         condition: service_completed_successfully
       localstack:
@@ -48,35 +46,19 @@ services:
     networks:
       - app_network
 
-  postgres:
-    image: postgres:16-alpine
-    platform: linux/arm64
-    env_file:
-      - ./backend/.env.local
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d consultation_note"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app_network
-
   localstack:
     image: localstack/localstack
     ports:
       - "4566:4566"
-      - "8080:8080"
     environment:
-      - SERVICES=s3,ssm,dynamodb
-      - DYNAMODB_IN_MEMORY=1
-      - LOCALSTACK_WEB_UI=true
+      - SERVICES=s3,dynamodb,lambda,logs,cloudwatch,iam,sts,dynamodbstreams,ssm,logs
+      - DEBUG=1
+      - LAMBDA_DOCKER_FLAGS=-e LOCALSTACK_INIT_LOG_LEVEL=debug
+      - DEFAULT_REGION=ap-southeast-2
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
-      - "${PWD}/terraform:/terraform"
       - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
@@ -85,10 +67,64 @@ services:
     networks:
       - app_network
 
+  s3-init:
+    image: amazon/aws-cli
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=ap-southeast-2
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    depends_on:
+      localstack:
+        condition: service_healthy
+    entrypoint: [""]
+    command: >
+      sh -c "
+        aws --endpoint-url=http://localstack:4566 s3 ls s3://lambda-artifacts 2>/dev/null || 
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://lambda-artifacts
+      "
+    networks:
+      - app_network
+
+  lambda-builder:
+    image: node:20-alpine
+    volumes:
+      - ./backend:/app
+      - ./backend/node_modules:/app/node_modules
+    working_dir: /app
+    env_file:
+      - ./backend/.env.local
+    depends_on:
+      s3-init:
+        condition: service_completed_successfully
+    command: >
+      /bin/sh -c "
+        echo '🔧 Building Lambda...' &&
+        npm install --silent &&
+        node src/lambdas/process.chunk/esbuild.config.js &&
+        cd src/lambdas/process.chunk/dist &&
+        apk add --no-cache --quiet zip aws-cli unzip &&
+        zip -q -r process-chunks.zip * &&
+        echo '📦 Lambda package contents:' &&
+        unzip -l process-chunks.zip | grep lambda.js &&
+        echo '🔍 Verifying Lambda entry point:' &&
+        if unzip -l process-chunks.zip | grep -q 'lambda.js'; then
+          echo '✅ Entry point found at: lambda.js' &&
+          echo '📄 Handler code preview:' &&
+          unzip -p process-chunks.zip lambda.js | head -n 5
+        else
+          echo '❌ Entry point not found!' &&
+          exit 1
+        fi &&
+        aws --endpoint-url=http://localstack:4566 s3 cp process-chunks.zip s3://lambda-artifacts/process-chunks.zip --quiet
+      "
+    networks:
+      - app_network
+
   terraform:
     image: hashicorp/terraform:latest
     volumes:
-      - "${PWD}/terraform:/terraform"
+      - ./terraform:/terraform
     working_dir: /terraform
     environment:
       - AWS_ACCESS_KEY_ID=test
@@ -97,6 +133,8 @@ services:
     depends_on:
       localstack:
         condition: service_healthy
+      lambda-builder:
+        condition: service_completed_successfully
     entrypoint: [""]
     command: >
       sh -c '
@@ -113,7 +151,6 @@ services:
       retries: 3
 
 volumes:
-  postgres_data:
   frontend_node_modules:
 
 networks:

@@ -22,6 +22,28 @@ export interface ConsultationSessionData {
   };
 }
 
+export interface ChunkMetadata {
+  chunkNumber: number;
+  s3Key: string;
+  isLastChunk: boolean;
+  metadata: {
+    size: number;
+    type: string;
+    timestamp: string;
+  };
+}
+
+export interface ProcessedChunk {
+  chunkNumber: number;
+  transcript: string;
+  confidence: number;
+  speakers?: Array<{
+    speaker: string;
+    text: string;
+    timestamp: string;
+  }>;
+}
+
 export class AudioChunk {
   private constructor(private data: {
     chunkNumber: number;
@@ -65,6 +87,7 @@ export class ConsultationSession {
     status: 'active' | 'completed' | 'error';
     metadata: {
       audioChunks?: AudioChunkData[];
+      transcripts?: Map<number, string>;
       totalChunks?: number;
       [key: string]: unknown;
     };
@@ -114,6 +137,24 @@ export class ConsultationSession {
 
   updateStatus(status: 'active' | 'completed' | 'error'): void {
     this.data.status = status;
+  }
+
+  addTranscript(chunkNumber: number, transcript: string): void {
+    if (!this.data.metadata.transcripts) {
+      this.data.metadata.transcripts = new Map();
+    }
+
+    this.data.metadata.transcripts.set(chunkNumber, transcript);
+    
+    // Check if all chunks have transcripts
+    const audioChunks = this.data.metadata.audioChunks || [];
+    const allTranscribed = audioChunks.every(chunk => 
+      this.data.metadata.transcripts?.has(chunk.chunkNumber)
+    );
+
+    if (allTranscribed) {
+      this.data.status = 'completed';
+    }
   }
 
   toJSON(): ConsultationSessionData {

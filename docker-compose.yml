@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -51,7 +49,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,dynamodb,lambda,logs,cloudwatch,iam,sts,dynamodbstreams,ssm,logs
+      - SERVICES=s3,dynamodb,lambda,logs,cloudwatch,iam,sts,dynamodbstreams,ssm,logs,sqs
       - DEBUG=1
       - LAMBDA_DOCKER_FLAGS=-e LOCALSTACK_INIT_LOG_LEVEL=debug
       - DEFAULT_REGION=ap-southeast-2
@@ -98,26 +96,38 @@ services:
       s3-init:
         condition: service_completed_successfully
     command: >
-      /bin/sh -c "
-        echo '🔧 Building Lambda...' &&
+      /bin/sh -c '
+        echo "🔧 Building Lambdas..." &&
         npm install --silent &&
-        node src/lambdas/process.chunk/esbuild.config.js &&
-        cd src/lambdas/process.chunk/dist &&
         apk add --no-cache --quiet zip aws-cli unzip &&
-        zip -q -r process-chunks.zip * &&
-        echo '📦 Lambda package contents:' &&
-        unzip -l process-chunks.zip | grep lambda.js &&
-        echo '🔍 Verifying Lambda entry point:' &&
-        if unzip -l process-chunks.zip | grep -q 'lambda.js'; then
-          echo '✅ Entry point found at: lambda.js' &&
-          echo '📄 Handler code preview:' &&
-          unzip -p process-chunks.zip lambda.js | head -n 5
-        else
-          echo '❌ Entry point not found!' &&
-          exit 1
-        fi &&
-        aws --endpoint-url=http://localstack:4566 s3 cp process-chunks.zip s3://lambda-artifacts/process-chunks.zip --quiet
-      "
+        
+        # Loop through Lambda directories, excluding dist
+        for lambda in $$(ls -d src/lambdas/*/ | grep -v "/dist/"); do
+          lambda_name=$$(basename "$${lambda%/}") &&
+          echo "📦 Building Lambda: $$lambda_name" &&
+          echo "📂 Path: $$lambda" &&
+          
+          # Build Lambda
+          npm run build:lambda "$$lambda_name" &&
+          
+          # Convert directory name to S3 key format
+          s3_key=$$(echo "$$lambda_name" | tr "." "-") &&
+          echo "🎯 S3 Key: $$s3_key.zip" &&
+          
+          # Verify and upload
+          cd "src/lambdas/$$lambda_name/dist" &&
+          echo "📦 Lambda package contents for $$lambda_name:" &&
+          unzip -l "$$lambda_name.zip" | grep lambda.js &&
+          
+          # Upload to S3
+          aws --endpoint-url=http://localstack:4566 \
+            s3 cp "$$lambda_name.zip" \
+            "s3://lambda-artifacts/$$s3_key.zip" --quiet &&
+          echo "✅ Uploaded to s3://lambda-artifacts/$$s3_key.zip" &&
+          
+          cd /app
+        done
+      '
     networks:
       - app_network
 

@@ -1,20 +1,35 @@
+export enum AudioChunkStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  ERROR = 'error'
+}
+
 export interface AudioChunkData {
   chunkNumber: number;
   s3Key: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: AudioChunkStatus;
   metadata: {
     size: number;
     type: string;
     timestamp: string;
     error?: string;
   };
+  transcript?: string;
+  isPending: () => boolean;
+}
+
+export enum ConsultationStatus {
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  ERROR = 'error'
 }
 
 export interface ConsultationSessionData {
   id: string;
   startedAt: Date;
   endedAt: Date | null;
-  status: 'active' | 'completed' | 'error';
+  status: ConsultationStatus;
   metadata: {
     audioChunks?: AudioChunkData[];
     totalChunks?: number;
@@ -44,54 +59,60 @@ export interface ProcessedChunk {
   }>;
 }
 
-export class AudioChunk {
+export class AudioChunk implements AudioChunkData {
   private constructor(private data: {
     chunkNumber: number;
     s3Key: string;
-    status: 'pending' | 'processing' | 'completed' | 'error';
+    status: AudioChunkStatus;
     metadata: {
       size: number;
       type: string;
       timestamp: string;
       error?: string;
     };
+    transcript?: string;
   }) {}
 
-  static create(data: AudioChunkData): AudioChunk {
+  static create(data: {
+    chunkNumber: number;
+    s3Key: string;
+    status: AudioChunkStatus;
+    metadata: {
+      size: number;
+      type: string;
+      timestamp: string;
+      error?: string;
+    };
+  }): AudioChunk {
     return new AudioChunk(data);
   }
 
-  markAsProcessing(): void {
-    this.data.status = 'processing';
-  }
+  get chunkNumber(): number { return this.data.chunkNumber; }
+  get s3Key(): string { return this.data.s3Key; }
+  get status(): AudioChunkStatus { return this.data.status; }
+  get metadata() { return this.data.metadata; }
+  get transcript(): string | undefined { return this.data.transcript; }
 
-  markAsCompleted(): void {
-    this.data.status = 'completed';
-  }
-
-  markAsError(error: string): void {
-    this.data.status = 'error';
-    this.data.metadata.error = error;
+  isPending(): boolean {
+    return this.status === AudioChunkStatus.PENDING;
   }
 
   toJSON(): AudioChunkData {
-    return { ...this.data };
+    return { 
+      ...this.data,
+      isPending: () => this.isPending()
+    };
   }
 }
 
-export class ConsultationSession {
-  private constructor(private data: {
-    id: string;
-    startedAt: Date;
-    endedAt: Date | null;
-    status: 'active' | 'completed' | 'error';
-    metadata: {
-      audioChunks?: AudioChunkData[];
-      transcripts?: Map<number, string>;
-      totalChunks?: number;
-      [key: string]: unknown;
-    };
-  }) {}
+export class ConsultationSession implements ConsultationSessionData {
+  private constructor(private data: ConsultationSessionData) {}
+
+  get id(): string { return this.data.id; }
+  get startedAt(): Date { return this.data.startedAt; }
+  get endedAt(): Date | null { return this.data.endedAt; }
+  get status(): ConsultationStatus { return this.data.status; }
+  get metadata() { return this.data.metadata; }
 
   static create(data: ConsultationSessionData): ConsultationSession {
     return new ConsultationSession(data);
@@ -102,21 +123,12 @@ export class ConsultationSession {
       id: crypto.randomUUID(),
       startedAt: new Date(),
       endedAt: null,
-      status: 'active',
+      status: ConsultationStatus.ACTIVE,
       metadata: metadata || {}
     });
   }
 
-  addAudioChunk(chunk: {
-    chunkNumber: number;
-    s3Key: string;
-    isLastChunk: boolean;
-    metadata: {
-      size: number;
-      type: string;
-      timestamp: string;
-    };
-  }): void {
+  addAudioChunk(chunk: ChunkMetadata): void {
     if (!this.data.metadata.audioChunks) {
       this.data.metadata.audioChunks = [];
     }
@@ -124,7 +136,7 @@ export class ConsultationSession {
     const audioChunk = AudioChunk.create({
       chunkNumber: chunk.chunkNumber,
       s3Key: chunk.s3Key,
-      status: 'pending',
+      status: AudioChunkStatus.PENDING,
       metadata: chunk.metadata
     });
 
@@ -135,26 +147,20 @@ export class ConsultationSession {
     }
   }
 
-  updateStatus(status: 'active' | 'completed' | 'error'): void {
+  updateStatus(status: ConsultationStatus): void {
     this.data.status = status;
   }
 
   addTranscript(chunkNumber: number, transcript: string): void {
-    if (!this.data.metadata.transcripts) {
-      this.data.metadata.transcripts = new Map();
+    const chunk = this.data.metadata.audioChunks?.find(c => c.chunkNumber === chunkNumber);
+    if (chunk) {
+      chunk.transcript = transcript;
+      chunk.status = AudioChunkStatus.COMPLETED;
     }
+  }
 
-    this.data.metadata.transcripts.set(chunkNumber, transcript);
-    
-    // Check if all chunks have transcripts
-    const audioChunks = this.data.metadata.audioChunks || [];
-    const allTranscribed = audioChunks.every(chunk => 
-      this.data.metadata.transcripts?.has(chunk.chunkNumber)
-    );
-
-    if (allTranscribed) {
-      this.data.status = 'completed';
-    }
+  getChunkByNumber(chunkNumber: number): Readonly<AudioChunkData> | undefined {
+    return this.data.metadata.audioChunks?.find(c => c.chunkNumber === chunkNumber);
   }
 
   toJSON(): ConsultationSessionData {

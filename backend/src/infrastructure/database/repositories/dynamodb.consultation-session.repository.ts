@@ -1,4 +1,4 @@
-import { ConsultationSession, ConsultationSessionRepository } from '@/modules/consultations';
+import { ConsultationSession, ConsultationSessionRepository, ConsultationStatus } from '@/modules/consultations';
 import { DynamoDB } from 'aws-sdk';
 import { logger } from '@/infrastructure/logging';
 import { ConsultationNotFound } from '@/modules/consultations/errors';
@@ -54,22 +54,36 @@ export class DynamoDBConsultationSessionRepository implements ConsultationSessio
 
   async save(consultation: ConsultationSession): Promise<void> {
     try {
-      logger.info(COMPONENT_NAME, 'Saving consultation session');
+      logger.info(COMPONENT_NAME, 'Saving consultation session', {
+        id: consultation.toJSON().id,
+        tableName: this.tableName
+      });
+
       const data = consultation.toJSON();
+      logger.debug(COMPONENT_NAME, 'Consultation data to save', { data });
+
+      const item = {
+        ...data,
+        startedAt: data.startedAt.toISOString(),
+        endedAt: data.endedAt?.toISOString() ?? null
+      };
+      
+      logger.debug(COMPONENT_NAME, 'DynamoDB Item to save', { 
+        tableName: this.tableName,
+        item 
+      });
 
       await this.dynamoDB.put({
         TableName: this.tableName,
-        Item: {
-          ...data,
-          startedAt: data.startedAt.toISOString(),
-          endedAt: data.endedAt?.toISOString() ?? null
-        }
+        Item: item
       }).promise();
 
       logger.info(COMPONENT_NAME, 'Successfully saved consultation session');
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to save consultation session', {
-        error: error instanceof Error ? error.message : String(error)
+        tableName: this.tableName,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
       });
       throw error;
     }
@@ -93,7 +107,7 @@ export class DynamoDBConsultationSessionRepository implements ConsultationSessio
     }
   }
 
-  async updateConsultationStatus(id: string, status: 'active' | 'completed' | 'error'): Promise<void> {
+  async updateConsultationStatus(id: string, status: ConsultationStatus): Promise<void> {
     try {
       const consultation = await this.findById(id);
       if (!consultation) {

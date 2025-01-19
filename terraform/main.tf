@@ -18,6 +18,7 @@ provider "aws" {
     iam      = "http://localstack:4566"
     lambda   = "http://localstack:4566"
     sts      = "http://localstack:4566"
+    sqs      = "http://localstack:4566"
   }
 }
 
@@ -96,10 +97,18 @@ resource "aws_lambda_function" "process_chunks" {
 }
 
 # Event Source Mapping
-resource "aws_lambda_event_source_mapping" "dynamodb_stream" {
+resource "aws_lambda_event_source_mapping" "process_chunks" {
   event_source_arn  = aws_dynamodb_table.consultation_sessions.stream_arn
   function_name     = aws_lambda_function.process_chunks.arn
   starting_position = "LATEST"
-  batch_size        = 1
+  
+  # Simplest possible filter - just MODIFY events
+  filter_criteria {
+    filter {
+      pattern = jsonencode({
+        eventName: ["MODIFY"]
+      })
+    }
+  }
 }
 

@@ -6,9 +6,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint .",
+    "lint:strict": "eslint . --max-warnings=0",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint:fix": "eslint . --fix && prettier --write .",
     "build:lambda": "ts-node src/lambdas/esbuild.config.ts"
   },
   "dependencies": {

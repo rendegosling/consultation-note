@@ -1,6 +1,6 @@
 import winston from 'winston';
 import { LogProvider, LogLevel, LogMetadata } from '../types/logger.types';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 export class WinstonProvider implements LogProvider {
   private logger: winston.Logger;

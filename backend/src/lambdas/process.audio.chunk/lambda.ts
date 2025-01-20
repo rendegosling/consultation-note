@@ -3,7 +3,7 @@ import { ProcessChunkCommandHandler } from '@/modules/consultations/commands';
 import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation.session.repository';
 import { logger } from '@/infrastructure/logging';
 import { DynamoDBClient } from '@/infrastructure/database/dynamodb.client';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 const COMPONENT_NAME = 'ProcessAudioChunkLambda';
 

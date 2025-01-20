@@ -27,6 +27,24 @@ resource "aws_s3_bucket" "audio_storage" {
   bucket = "${var.environment}-consultations-audio"
 }
 
+# S3 bucket for consultation reports/summaries
+resource "aws_s3_bucket" "report_storage" {
+  bucket = "${var.environment}-consultations-reports"
+}
+
+# CORS configuration for reports bucket
+resource "aws_s3_bucket_cors_configuration" "report_storage" {
+  bucket = aws_s3_bucket.report_storage.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD"]  # Reports only need GET access
+    allowed_origins = ["*"]  # In production, this should be restricted
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
 # DynamoDB table for consultation sessions
 resource "aws_dynamodb_table" "consultation_sessions" {
   name           = "${var.environment}-consultation-sessions"
@@ -94,6 +112,20 @@ resource "aws_sqs_queue" "audio_chunks_queue" {
   }
 }
 
+# SQS Queue for summary generation
+resource "aws_sqs_queue" "summary_generation_queue" {
+  name                      = "${var.environment}-summary-generation"
+  delay_seconds             = 0
+  max_message_size         = 262144  # 256 KB
+  message_retention_seconds = 86400   # 24 hours
+  receive_wait_time_seconds = 0
+  visibility_timeout_seconds = 180  # 3 minutes timeout
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
 # Add SQS permissions to Lambda role
 resource "aws_iam_role_policy_attachment" "lambda_sqs" {
   role       = aws_iam_role.lambda_role.name
@@ -125,7 +157,9 @@ resource "aws_iam_role_policy" "lambda_sqs_policy" {
         Resource = [
           aws_dynamodb_table.consultation_sessions.arn,
           "${aws_s3_bucket.audio_storage.arn}/*",
-          aws_sqs_queue.audio_chunks_queue.arn
+          "${aws_s3_bucket.report_storage.arn}/*",
+          aws_sqs_queue.audio_chunks_queue.arn,
+          aws_sqs_queue.summary_generation_queue.arn
         ]
       }
     ]

@@ -27,6 +27,12 @@ export enum ConsultationStatus {
   ERROR = 'error'
 }
 
+export enum SummaryStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  ERROR = 'ERROR'
+}
+
 export interface ConsultationSessionData {
   id: string;
   startedAt: Date;
@@ -40,6 +46,11 @@ export interface ConsultationSessionData {
   notes: ConsultationNoteData[];
   createdAt: string;
   updatedAt: string;
+  summary?: {
+    status: SummaryStatus;
+    url?: string;
+    generatedAt?: string;
+  };
 }
 
 export interface ChunkMetadata {
@@ -127,6 +138,8 @@ export class ConsultationSession implements ConsultationSessionData {
   get notes(): ConsultationNoteData[] { return this.data.notes; }
   get createdAt(): string { return this.data.createdAt; }
   get updatedAt(): string { return this.data.updatedAt; }
+  get summary() { return this.data.summary; }
+  set summary(value) { this.data.summary = value; }
 
   static create(data: ConsultationSessionData): ConsultationSession {
     return new ConsultationSession(data);
@@ -193,6 +206,20 @@ export class ConsultationSession implements ConsultationSessionData {
 
   toJSON(): ConsultationSessionData {
     return { ...this.data };
+  }
+
+  get isAudioProcessingComplete(): boolean {
+    const { audioChunks, totalChunks } = this.data.metadata;
+    
+    if (!audioChunks || audioChunks.length === 0) {
+      return false;
+    }
+
+    if (totalChunks && audioChunks.length < totalChunks) {
+      return false;
+    }
+
+    return audioChunks.every(chunk => chunk.status === AudioChunkStatus.COMPLETED);
   }
 }
 

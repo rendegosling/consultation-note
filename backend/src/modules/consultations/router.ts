@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { ConsultationController } from './controller';
 import { validateCreateConsultation, validateChunkUpload } from './validation';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 import { storageService } from '@/infrastructure/storage';
 import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation.session.repository';
 import { DynamoDBClient } from '@/infrastructure/database/dynamodb.client';

@@ -1,5 +1,5 @@
 import { DynamoDB } from 'aws-sdk';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 export class DynamoDBClient {
   private static instance: DynamoDB.DocumentClient;

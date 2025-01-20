@@ -4,10 +4,10 @@ import { AppError } from '@/infrastructure/middleware';
 import { logger } from '@/infrastructure/logging';
 import crypto from 'crypto';
 import { ConsultationSessionRepository } from '@/modules/consultations/repository';
-import { ConsultationSession } from '@/modules/consultations/models';
 import { ConsultationNotFound } from '@/modules/consultations/errors';
 import { CreateConsultationResponse } from './dtos';
 import { AudioChunkUploadFailed } from '@/modules/consultations/errors';
+import { config } from '@/config/app.config';
 
 export class ConsultationController {
   private readonly COMPONENT_NAME = 'ConsultationController';
@@ -112,9 +112,12 @@ export class ConsultationController {
 
       try {
         await this.storageService.uploadFile(s3Key, file.buffer, {
-          contentType: file.mimetype,
-          chunkNumber: String(chunkNumber),
-          timestamp: new Date().toISOString()
+          bucket: config.aws.s3.audioBucket,
+          metadata: {
+            contentType: file.mimetype,
+            chunkNumber: String(chunkNumber),
+            timestamp: new Date().toISOString()
+          }
         });
       } catch (error) {
         logger.error(this.COMPONENT_NAME, 'S3 upload failed', {

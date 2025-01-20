@@ -4,7 +4,8 @@ import { router as consultationRouter } from './modules/consultations/router';
 import { addNoteRouter } from './modules/consultations/add.note/router';
 import { errorHandler } from './infrastructure/middleware';
 import { logger } from '@/infrastructure/logging';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
+import { createGenerateSummaryRouter } from './modules/consultations/generate.summary/router';
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => {
 
 // Module routes
 app.use('/consultations', consultationRouter);
+app.use(createGenerateSummaryRouter());
 app.use(addNoteRouter);
 
 // Error handling

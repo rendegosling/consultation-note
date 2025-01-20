@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '@/infrastructure/middleware';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 export const createConsultationSchema = z.object({
   metadata: z

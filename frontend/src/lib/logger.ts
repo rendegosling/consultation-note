@@ -1,3 +1,5 @@
+import { config } from '@/config';
+
 interface LogMetadata {
   [key: string]: string | number | boolean | null | undefined;
 }
@@ -5,11 +7,11 @@ interface LogMetadata {
 const formatLog = (component: string, message: string, metadata?: LogMetadata) => {
   return JSON.stringify({
     timestamp: new Date().toISOString(),
-    level: metadata?.level || 'info',
+    level: metadata?.level || config.logging.level,
     component,
     message,
-    service: 'consultation-frontend',
-    environment: process.env.NODE_ENV,
+    service: config.logging.service,
+    environment: config.environment,
     correlationId: metadata?.correlationId || crypto.randomUUID(),
     ...metadata
   });
@@ -26,7 +28,7 @@ export const logger = {
     console.warn(formatLog(component, message, metadata));
   },
   debug: (component: string, message: string, metadata?: LogMetadata) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (config.environment === 'development') {
       console.debug(formatLog(component, message, metadata));
     }
   }

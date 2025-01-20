@@ -31,4 +31,11 @@ export class NoteTooLongError extends Error {
     super(`Note cannot be longer than ${maxLength} characters`);
     this.name = 'NoteTooLongError';
   }
+}
+
+export class AudioProcessingIncomplete extends Error {
+  constructor(sessionId: string) {
+    super(`Audio processing is not complete for session: ${sessionId}`);
+    this.name = 'AudioProcessingIncomplete';
+  }
 } 

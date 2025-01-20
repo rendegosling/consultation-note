@@ -9,7 +9,12 @@ export interface AwsConfig {
     tableName: string;
   };
   s3: {
-    bucket: string;
+    audioBucket: string;
+    reportBucket: string;
+  };
+  sqs: {
+    audioChunksQueue: string;
+    summaryGenerationQueue: string;
   };
 }
 
@@ -31,6 +36,13 @@ export interface AppConfig {
   aws: AwsConfig;
   logging: LogConfig;
   validation: ValidationConfig;
+  storage: {
+    signedUrls: {
+      summary: {
+        expirySeconds: number;  // in seconds
+      };
+    };
+  };
 }
 
 export const config: AppConfig = {
@@ -43,7 +55,7 @@ export const config: AppConfig = {
   },
 
   aws: {
-    region: process.env.AWS_REGION || 'us-east-1',
+    region: process.env.AWS_REGION || 'ap-southeast-2',
     endpoint: process.env.AWS_ENDPOINT,
     credentials: process.env.AWS_ACCESS_KEY_ID ? {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -53,14 +65,27 @@ export const config: AppConfig = {
       tableName: process.env.DYNAMODB_TABLE || 'dev-consultation-sessions',
     },
     s3: {
-      bucket: process.env.S3_BUCKET || 'dev-consultations-audio',
+      audioBucket: process.env.S3_AUDIO_BUCKET || 'dev-consultations-audio',
+      reportBucket: process.env.S3_REPORT_BUCKET || 'dev-consultations-reports'
     },
+    sqs: {
+      audioChunksQueue: process.env.SQS_AUDIO_CHUNKS || 'dev-audio-chunks-queue',
+      summaryGenerationQueue: process.env.SQS_SUMMARY_GENERATION || 'dev-summary-generation'
+    }
   },
 
   validation: {
     audio: {
       maxChunkSize: Number(process.env.MAX_CHUNK_SIZE) || 2 * 1024 * 1024, // 2MB default
       allowedMimeTypes: ['audio/webm', 'audio/ogg', 'audio/wav']
+    }
+  },
+
+  storage: {
+    signedUrls: {
+      summary: {
+        expirySeconds: Number(process.env.SUMMARY_SIGNED_URL_EXPIRY) || 3600, // 1 hour default
+      }
     }
   },
 }; 

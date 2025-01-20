@@ -3,7 +3,7 @@ import { AddNoteController } from './controller';
 import { AddNoteCommandHandler } from './command.handler';
 import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation.session.repository';
 import { DynamoDBClient } from '@/infrastructure/database/dynamodb.client';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 export function createAddNoteRouter() {
   const router = Router();

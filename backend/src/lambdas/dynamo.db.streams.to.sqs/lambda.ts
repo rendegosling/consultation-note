@@ -1,7 +1,7 @@
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { DynamoDB, SQS } from 'aws-sdk'
 import { logger } from '@/infrastructure/logging';
-import { config } from '@/config';
+import { config } from '@/config/app.config';
 
 const COMPONENT_NAME = 'DynamoDbStreamsToSqsLambda';
 
@@ -44,7 +44,7 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {
         });
 
         try {
-          const queueUrl = process.env.SQS_AUDIO_CHUNKS;
+          const queueUrl = config.aws.sqs.audioChunksQueue;
           if (!queueUrl) {
             throw new Error('SQS_AUDIO_CHUNKS environment variable is not set');
           }

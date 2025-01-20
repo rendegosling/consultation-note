@@ -3,7 +3,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    platform: linux/arm64
     ports:
       - "3000:3000"
     env_file:
@@ -23,7 +22,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    platform: linux/arm64
     ports:
       - "5000:5000"
     env_file:
@@ -46,7 +44,6 @@ services:
 
   localstack:
     image: localstack/localstack
-    platform: linux/arm64
     ports:
       - "4566:4566"
     environment:

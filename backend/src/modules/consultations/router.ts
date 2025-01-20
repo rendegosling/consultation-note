@@ -15,7 +15,7 @@ export const router = express.Router();
 // Initialize DynamoDB client
 const dynamoDB = new DynamoDB.DocumentClient({
   region: config.aws.region,
-  endpoint: config.aws.endpoint || 'http://localhost:4566', // LocalStack default
+  endpoint: config.aws.endpoint || 'http://localstack:4566', // LocalStack default
   credentials: {
     accessKeyId: 'test',
     secretAccessKey: 'test'

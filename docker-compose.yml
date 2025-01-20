@@ -46,6 +46,7 @@ services:
 
   localstack:
     image: localstack/localstack
+    platform: linux/arm64
     ports:
       - "4566:4566"
     environment:
@@ -58,7 +59,7 @@ services:
       - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test: ["CMD", "curl", "-f", "http://localstack:4566/_localstack/health"]
       interval: 10s
       timeout: 5s
       retries: 5

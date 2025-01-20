@@ -21,3 +21,9 @@ variable "table_name" {
   type        = string
   default     = "consultation-sessions"
 }
+
+variable "aws_endpoint" {
+  description = "AWS endpoint for LocalStack"
+  type        = string
+  default     = "http://localstack:4566"
+}

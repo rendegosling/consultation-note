@@ -1,0 +1,66 @@
+export interface AwsConfig {
+  region: string;
+  endpoint?: string;
+  credentials?: {
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
+  dynamodb: {
+    tableName: string;
+  };
+  s3: {
+    bucket: string;
+  };
+}
+
+export interface LogConfig {
+  level: string;
+  service: string;
+}
+
+export interface ValidationConfig {
+  audio: {
+    maxChunkSize: number;  // in bytes
+    allowedMimeTypes: string[];
+  };
+}
+
+export interface AppConfig {
+  port: number;
+  environment: 'development' | 'staging' | 'production';
+  aws: AwsConfig;
+  logging: LogConfig;
+  validation: ValidationConfig;
+}
+
+export const config: AppConfig = {
+  port: parseInt(process.env.PORT || '3000', 10),
+  environment: (process.env.NODE_ENV || 'development') as AppConfig['environment'],
+  
+  logging: {
+    level: process.env.LOG_LEVEL || 'debug',
+    service: process.env.SERVICE_NAME || 'consultation-backend'
+  },
+
+  aws: {
+    region: process.env.AWS_REGION || 'us-east-1',
+    endpoint: process.env.AWS_ENDPOINT,
+    credentials: process.env.AWS_ACCESS_KEY_ID ? {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    } : undefined,
+    dynamodb: {
+      tableName: process.env.DYNAMODB_TABLE || 'dev-consultation-sessions',
+    },
+    s3: {
+      bucket: process.env.S3_BUCKET || 'dev-consultations-audio',
+    },
+  },
+
+  validation: {
+    audio: {
+      maxChunkSize: Number(process.env.MAX_CHUNK_SIZE) || 2 * 1024 * 1024, // 2MB default
+      allowedMimeTypes: ['audio/webm', 'audio/ogg', 'audio/wav']
+    }
+  },
+}; 

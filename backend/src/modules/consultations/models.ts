@@ -1,3 +1,5 @@
+import { CannotAddNoteToInactiveSession, EmptyNoteError, NoteTooLongError } from './errors';
+
 export enum AudioChunkStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
@@ -35,6 +37,9 @@ export interface ConsultationSessionData {
     totalChunks?: number;
     [key: string]: unknown;
   };
+  notes: ConsultationNoteData[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChunkMetadata {
@@ -57,6 +62,12 @@ export interface ProcessedChunk {
     text: string;
     timestamp: string;
   }>;
+}
+
+export interface ConsultationNoteData {
+  id: string;
+  note: string;
+  timestamp: string;
 }
 
 export class AudioChunk implements AudioChunkData {
@@ -113,6 +124,9 @@ export class ConsultationSession implements ConsultationSessionData {
   get endedAt(): Date | null { return this.data.endedAt; }
   get status(): ConsultationStatus { return this.data.status; }
   get metadata() { return this.data.metadata; }
+  get notes(): ConsultationNoteData[] { return this.data.notes; }
+  get createdAt(): string { return this.data.createdAt; }
+  get updatedAt(): string { return this.data.updatedAt; }
 
   static create(data: ConsultationSessionData): ConsultationSession {
     return new ConsultationSession(data);
@@ -124,7 +138,10 @@ export class ConsultationSession implements ConsultationSessionData {
       startedAt: new Date(),
       endedAt: null,
       status: ConsultationStatus.ACTIVE,
-      metadata: metadata || {}
+      metadata: metadata || {},
+      notes: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
   }
 
@@ -163,7 +180,43 @@ export class ConsultationSession implements ConsultationSessionData {
     return this.data.metadata.audioChunks?.find(c => c.chunkNumber === chunkNumber);
   }
 
+  addNote(note: ConsultationNote): ConsultationNote {
+    if (this.status !== ConsultationStatus.ACTIVE) {
+      throw new CannotAddNoteToInactiveSession(this.id);
+    }
+
+    this.data.notes.push(note);
+    this.data.updatedAt = new Date().toISOString();
+    
+    return note;
+  }
+
   toJSON(): ConsultationSessionData {
     return { ...this.data };
   }
-} 
+}
+
+export class ConsultationNote {
+  private static readonly MAX_LENGTH = 1000;
+
+  private constructor(
+    public readonly id: string,
+    public readonly note: string,
+    public readonly timestamp: string
+  ) {}
+
+  static create(note: string): ConsultationNote {
+    if (!note.trim()) {
+      throw new EmptyNoteError();
+    }
+    if (note.length > this.MAX_LENGTH) {
+      throw new NoteTooLongError(this.MAX_LENGTH);
+    }
+
+    return new ConsultationNote(
+      crypto.randomUUID(),
+      note.trim(),
+      new Date().toISOString()
+    );
+  }
+}

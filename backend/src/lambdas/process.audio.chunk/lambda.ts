@@ -1,19 +1,15 @@
 import { SQSEvent } from 'aws-lambda';
-import { DynamoDB } from 'aws-sdk';
 import { ProcessChunkCommandHandler } from '@/modules/consultations/commands';
-import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation-session.repository';
+import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation.session.repository';
 import { logger } from '@/infrastructure/logging';
+import { DynamoDBClient } from '@/infrastructure/database/dynamodb.client';
+import { config } from '@/config';
 
 const COMPONENT_NAME = 'ProcessAudioChunkLambda';
 
-const dynamoDB = new DynamoDB.DocumentClient({
-  region: process.env.AWS_REGION || 'ap-southeast-2',
-  endpoint: process.env.AWS_ENDPOINT || 'http://localstack:4566'
-});
-
 const repository = new DynamoDBConsultationSessionRepository(
-  dynamoDB,
-  `${process.env.NODE_ENV}-consultation-sessions`
+  DynamoDBClient.getInstance(),
+  config.aws.dynamodb.tableName
 );
 
 export const handler = async (event: SQSEvent): Promise<void> => {

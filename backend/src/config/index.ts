@@ -1,2 +1,1 @@
-export * from './types/config.types';
-export { config } from './environment.config';
+export * from './app.config';

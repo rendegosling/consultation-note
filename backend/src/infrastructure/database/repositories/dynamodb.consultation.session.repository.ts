@@ -40,7 +40,10 @@ export class DynamoDBConsultationSessionRepository implements ConsultationSessio
         status: result.Item.status,
         metadata: result.Item.metadata || {},
         startedAt: new Date(result.Item.startedAt),
-        endedAt: result.Item.endedAt ? new Date(result.Item.endedAt) : null
+        endedAt: result.Item.endedAt ? new Date(result.Item.endedAt) : null,
+        notes: result.Item.notes || [],
+        createdAt: result.Item.createdAt || result.Item.startedAt,
+        updatedAt: result.Item.updatedAt || result.Item.startedAt
       });
     } catch (error) {
       logger.error(COMPONENT_NAME, 'Failed to fetch consultation session', {

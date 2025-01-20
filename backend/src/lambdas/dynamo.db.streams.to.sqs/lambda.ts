@@ -1,12 +1,13 @@
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { DynamoDB, SQS } from 'aws-sdk'
 import { logger } from '@/infrastructure/logging';
+import { config } from '@/config';
 
 const COMPONENT_NAME = 'DynamoDbStreamsToSqsLambda';
 
 const sqs = new SQS({
-  region: process.env.AWS_REGION || 'ap-southeast-2',
-  endpoint: process.env.AWS_ENDPOINT || 'http://localstack:4566'
+  region: config.aws.region,
+  endpoint: config.aws.endpoint
 });
 
 export const handler = async (event: DynamoDBStreamEvent): Promise<void> => {

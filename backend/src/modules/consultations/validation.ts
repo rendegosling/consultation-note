@@ -1,10 +1,7 @@
 import { z } from 'zod';
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '@/infrastructure/middleware';
-
-// Constants should come from environment variables
-const MAX_CHUNK_SIZE = process.env.MAX_CHUNK_SIZE || 2 * 1024 * 1024; // 2MB default
-const ALLOWED_MIME_TYPES = ['audio/webm', 'audio/ogg', 'audio/wav'];
+import { config } from '@/config';
 
 export const createConsultationSchema = z.object({
   metadata: z
@@ -19,11 +16,14 @@ export const audioChunkSchema = z.object({
   chunkNumber: z.number().positive('Chunk number must be positive'),
   isLastChunk: z.boolean(),
   metadata: z.object({
-    size: z.number().max(Number(MAX_CHUNK_SIZE), 'File too large'),
+    size: z.number().max(
+      config.validation.audio.maxChunkSize, 
+      'File too large'
+    ),
     type: z
       .string()
       .refine(
-        (type) => ALLOWED_MIME_TYPES.includes(type),
+        (type) => config.validation.audio.allowedMimeTypes.includes(type),
         'Invalid audio format',
       ),
     timestamp: z.string().datetime(),
@@ -50,16 +50,14 @@ export const validateChunkUpload = (
   next: NextFunction,
 ) => {
   try {
-    // Validate file presence and size
     if (!req.file) {
       throw new AppError(400, 'No audio chunk provided');
     }
 
-    if (req.file.size > Number(MAX_CHUNK_SIZE)) {
+    if (req.file.size > config.validation.audio.maxChunkSize) {
       throw new AppError(400, 'Chunk size exceeds maximum allowed');
     }
 
-    // Validate body parameters
     const validatedBody = audioChunkSchema.parse({
       chunkNumber: Number(req.body.chunkNumber),
       isLastChunk: req.body.isLastChunk === 'true',
@@ -70,9 +68,7 @@ export const validateChunkUpload = (
       },
     });
 
-    // Attach validated data to request
     req.validatedChunk = validatedBody;
-
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {

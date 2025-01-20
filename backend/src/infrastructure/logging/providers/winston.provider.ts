@@ -1,19 +1,20 @@
 import winston from 'winston';
 import { LogProvider, LogLevel, LogMetadata } from '../types/logger.types';
+import { config } from '@/config';
 
 export class WinstonProvider implements LogProvider {
   private logger: winston.Logger;
 
   constructor() {
     this.logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || 'debug',
+      level: config.logging.level,
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
       ),
       defaultMeta: { 
-        service: 'consultation-backend',
-        environment: process.env.NODE_ENV 
+        service: config.logging.service,
+        environment: config.environment 
       },
       transports: [
         new winston.transports.Console({

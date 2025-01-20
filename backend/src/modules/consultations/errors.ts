@@ -10,4 +10,25 @@ export class AudioChunkUploadFailed extends Error {
     super(`Failed to upload audio chunk ${chunkNumber} for session ${sessionId}`);
     this.name = 'AudioChunkUploadFailed';
   }
+}
+
+export class CannotAddNoteToInactiveSession extends Error {
+  constructor(sessionId: string) {
+    super(`Cannot add notes to a non-active session: ${sessionId}`);
+    this.name = 'CannotAddNoteToInactiveSession';
+  }
+}
+
+export class EmptyNoteError extends Error {
+  constructor() {
+    super('Note cannot be empty');
+    this.name = 'EmptyNoteError';
+  }
+}
+
+export class NoteTooLongError extends Error {
+  constructor(maxLength: number) {
+    super(`Note cannot be longer than ${maxLength} characters`);
+    this.name = 'NoteTooLongError';
+  }
 } 

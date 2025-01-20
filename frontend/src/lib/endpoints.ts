@@ -7,6 +7,9 @@ export const API_ENDPOINTS = {
     },
     CHUNKS: {
       UPLOAD: (sessionId: string) => `/consultations/sessions/${sessionId}/chunks`,
+    },
+    NOTES: {
+      CREATE: (sessionId: string) => `/consultations/sessions/${sessionId}/notes`,
     }
   }
 } as const;

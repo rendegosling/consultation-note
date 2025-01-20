@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { env } from '@/config/env';
+import NoteInput from './NoteInput';
 
 const COMPONENT_NAME = 'AudioRecorder';
 
@@ -170,9 +171,12 @@ const AudioRecorder = () => {
         {isRecording ? 'Stop Recording' : 'Start Recording'}
       </button>
       {isRecording && (
-        <div className="text-sm text-gray-600">
-          Recording in progress...
-        </div>
+        <>
+          <div className="text-sm text-gray-600">
+            Recording in progress...
+          </div>
+          {sessionId && <NoteInput sessionId={sessionId} />}
+        </>
       )}
     </div>
   );

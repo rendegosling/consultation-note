@@ -1,11 +1,11 @@
 import { SQSEvent } from 'aws-lambda';
-import { ProcessChunkCommandHandler } from '@/modules/consultations/commands';
 import { DynamoDBConsultationSessionRepository } from '@/infrastructure/database/repositories/dynamodb.consultation.session.repository';
 import { logger } from '@/infrastructure/logging';
 import { DynamoDBClient } from '@/infrastructure/database/dynamodb.client';
 import { config } from '@/config/app.config';
+import { TranscribeAudioChunkCommandHandler } from '@/modules/consultations/transcribe.audio.chunk/command.handler';
 
-const COMPONENT_NAME = 'ProcessAudioChunkLambda';
+const COMPONENT_NAME = 'TranscribeAudioChunkLambda';
 
 const repository = new DynamoDBConsultationSessionRepository(
   DynamoDBClient.getInstance(),
@@ -17,7 +17,7 @@ export const handler = async (event: SQSEvent): Promise<void> => {
     messageCount: event.Records.length 
   });
 
-  const commandHandler = new ProcessChunkCommandHandler(repository);
+  const commandHandler = new TranscribeAudioChunkCommandHandler(repository);
   
   for (const record of event.Records) {
     let message;

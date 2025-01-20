@@ -3,6 +3,7 @@ import { audioChunkSchema } from '@/lib/audioSchemaValidator';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
+import { api } from '@/lib/api';
 
 const COMPONENT_NAME = 'ChunkUploadAPI';
 
@@ -18,18 +19,16 @@ export async function POST(
       chunk: formData.get('chunk'),
       chunkNumber: Number(formData.get('chunkNumber')),
       isLastChunk: formData.get('isLastChunk') === 'true',
-      metadata: {
-        size: (formData.get('chunk') as Blob)?.size || 0,
-        type: (formData.get('chunk') as Blob)?.type || '',
-        timestamp: new Date().toISOString()
-      }
+      size: (formData.get('chunk') as Blob)?.size || 0,
+      type: (formData.get('chunk') as Blob)?.type || '',
+      timestamp: new Date().toISOString()
     };
 
     logger.info(COMPONENT_NAME, 'Validating chunk data', {
       sessionId,
       chunkNumber: rawData.chunkNumber,
-      size: rawData.metadata.size,
-      type: rawData.metadata.type,
+      size: rawData.size,
+      type: rawData.type,
       isLastChunk: rawData.isLastChunk
     });
 
@@ -45,9 +44,12 @@ export async function POST(
     backendFormData.append('chunk', validatedData.chunk);
     backendFormData.append('chunkNumber', String(validatedData.chunkNumber));
     backendFormData.append('isLastChunk', String(validatedData.isLastChunk));
+    backendFormData.append('size', String(validatedData.size));
+    backendFormData.append('type', validatedData.type);
+    backendFormData.append('timestamp', validatedData.timestamp);
 
     const url = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.CHUNKS.UPLOAD(sessionId));
-    const response = await fetch(url, {
+    const response = await api.fetch(url, {
       method: 'POST',
       body: backendFormData,
     });

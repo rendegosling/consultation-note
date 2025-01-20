@@ -1,26 +1,27 @@
-import { ConsultationNotFound } from "./errors";
-import { ConsultationSessionRepository } from "./repository";
-import { logger } from "@/infrastructure/logging";
-import { AudioChunkStatus } from "./models";
+import { ConsultationSessionRepository } from '@/modules/consultations/repository';
+import { logger } from '@/infrastructure/logging';
+import { ConsultationNotFound } from '../errors';
+import { AudioChunkStatus } from '../models';
 
-// Process Chunk
-export interface ProcessChunkCommand {
+const COMPONENT_NAME = 'TranscribeAudioChunkCommandHandler';
+
+export interface TranscribeAudioChunkCommand {
   sessionId: string;
   chunkNumber: number;
   s3Key: string;
 }
 
-export interface ProcessChunkResult {
+export interface TranscribeAudioChunkResult {
   chunkNumber: number;
   transcript: string;
   processedAt: Date;
 }
 
-export class ProcessChunkCommandHandler {
+export class TranscribeAudioChunkCommandHandler {
   constructor(private readonly repository: ConsultationSessionRepository) {}
   
-  async execute(command: ProcessChunkCommand): Promise<ProcessChunkResult | undefined> {
-    logger.info('Processing chunk', 'ProcessChunkCommandHandler', { command });
+  async execute(command: TranscribeAudioChunkCommand): Promise<TranscribeAudioChunkResult | undefined> {
+    logger.info(COMPONENT_NAME, 'Processing chunk', { command });
 
     const session = await this.repository.findById(command.sessionId);
     if (!session) throw new ConsultationNotFound(command.sessionId);
@@ -28,14 +29,14 @@ export class ProcessChunkCommandHandler {
     const chunk = session.getChunkByNumber(command.chunkNumber);
     
     if (!chunk || chunk.status !== AudioChunkStatus.PENDING) {
-      logger.info('Skipping chunk - not pending', 'ProcessChunkCommandHandler', {
+      logger.info(COMPONENT_NAME, 'Skipping chunk - not pending', {
         chunkNumber: command.chunkNumber,
         currentStatus: chunk?.status
       });
       return undefined;
     }
 
-    // Continue processing...
+    // TODO: Implement actual transcription logic
     const transcript = `Placeholder transcript for chunk ${command.chunkNumber}`;
     session.addTranscript(command.chunkNumber, transcript);
     await this.repository.save(session);

@@ -19,11 +19,17 @@ export interface LogConfig {
   service: string;
 }
 
+export interface AuthConfig {
+  username: string;
+  password: string;
+}
+
 export interface AppConfig {
   environment: 'development' | 'staging' | 'production';
   audio: AudioConfig;
   api: ApiConfig;
   logging: LogConfig;
+  auth: AuthConfig;
 }
 
 export const config: AppConfig = {
@@ -53,5 +59,10 @@ export const config: AppConfig = {
   logging: {
     level: process.env.NEXT_PUBLIC_LOG_LEVEL || 'debug',
     service: 'consultation-frontend'
+  },
+
+  auth: {
+    username: process.env.NEXT_PUBLIC_AUTH_USERNAME || 'admin',
+    password: process.env.NEXT_PUBLIC_AUTH_PASSWORD || 'password'
   }
 }; 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
+import { api } from '@/lib/api';
 import { z } from 'zod';
 
 const COMPONENT_NAME = 'NotesAPI';
@@ -27,7 +28,7 @@ export async function POST(
     const validatedData = noteSchema.parse(body);
 
     const url = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.NOTES.CREATE(sessionId));
-    const response = await fetch(url, {
+    const response = await api.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

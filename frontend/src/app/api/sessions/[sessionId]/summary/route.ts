@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
+import { api } from '@/lib/api';
 
 const COMPONENT_NAME = 'SummaryAPI';
 
@@ -11,9 +12,9 @@ interface SummaryResponse {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> }
 ) {
-  const { sessionId } = params;
+  const { sessionId } = await context.params;
   
   logger.info(COMPONENT_NAME, 'Requesting summary', { sessionId });
 
@@ -28,10 +29,12 @@ export async function GET(
   }
 
   try {
-    const backendUrl = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.SESSIONS.SUMMARY(sessionId));
-    logger.debug(COMPONENT_NAME, 'Calling backend', { url: backendUrl });
+    const url = buildApiUrl(API_ENDPOINTS.CONSULTATIONS.SESSIONS.SUMMARY(sessionId));
+    logger.debug(COMPONENT_NAME, 'Calling backend', { url: url });
 
-    const response = await fetch(backendUrl, { method: 'POST' });
+    const response = await api.fetch(url, {
+      method: 'POST'
+    });
 
     if (!response.ok) {
       logger.error(COMPONENT_NAME, 'Backend error', { 

@@ -1,5 +1,7 @@
 import { CannotAddNoteToInactiveSession, EmptyNoteError, NoteTooLongError } from './errors';
 
+export type ISODateTime = string;
+
 export enum AudioChunkStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
@@ -30,7 +32,7 @@ export enum ConsultationStatus {
 export enum SummaryStatus {
   PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
-  ERROR = 'ERROR'
+  FAILED = 'FAILED'
 }
 
 export interface ConsultationSessionData {
@@ -79,6 +81,21 @@ export interface ConsultationNoteData {
   id: string;
   note: string;
   timestamp: string;
+}
+
+export interface AudioChunkUpload {
+  chunkNumber: number;
+  s3Key: string;
+  isLastChunk: boolean;
+  size: number;
+  type: string;
+  timestamp: ISODateTime;
+}
+
+export interface ConsultationSummaryData {
+  status: SummaryStatus;
+  url?: string;
+  generatedAt?: ISODateTime;
 }
 
 export class AudioChunk implements AudioChunkData {
@@ -158,18 +175,19 @@ export class ConsultationSession implements ConsultationSessionData {
     });
   }
 
-  addAudioChunk(chunk: ChunkMetadata): void {
-    if (!this.data.metadata.audioChunks) {
-      this.data.metadata.audioChunks = [];
-    }
-
+  addAudioChunk(chunk: AudioChunkUpload): void {
     const audioChunk = AudioChunk.create({
       chunkNumber: chunk.chunkNumber,
       s3Key: chunk.s3Key,
       status: AudioChunkStatus.PENDING,
-      metadata: chunk.metadata
+      metadata: {
+        size: chunk.size,
+        type: chunk.type,
+        timestamp: chunk.timestamp
+      }
     });
 
+    this.data.metadata.audioChunks = this.data.metadata.audioChunks || [];
     this.data.metadata.audioChunks.push(audioChunk.toJSON());
 
     if (chunk.isLastChunk) {
@@ -245,5 +263,37 @@ export class ConsultationNote {
       note.trim(),
       new Date().toISOString()
     );
+  }
+}
+
+export class ConsultationSummary {
+  private constructor(private data: ConsultationSummaryData) {}
+
+  get status(): SummaryStatus { return this.data.status; }
+  get url(): string | undefined { return this.data.url; }
+  get generatedAt(): ISODateTime | undefined { return this.data.generatedAt; }
+
+  static create(data: ConsultationSummaryData): ConsultationSummary {
+    return new ConsultationSummary(data);
+  }
+
+  static createNew(): ConsultationSummary {
+    return new ConsultationSummary({
+      status: SummaryStatus.PENDING
+    });
+  }
+
+  complete(url: string): void {
+    this.data.status = SummaryStatus.COMPLETED;
+    this.data.url = url;
+    this.data.generatedAt = new Date().toISOString();
+  }
+
+  fail(): void {
+    this.data.status = SummaryStatus.FAILED;
+  }
+
+  toJSON(): ConsultationSummaryData {
+    return { ...this.data };
   }
 }

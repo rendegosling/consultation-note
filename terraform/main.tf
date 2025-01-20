@@ -203,15 +203,15 @@ resource "aws_lambda_event_source_mapping" "dynamo_streams_to_sqs" {
 }
 
 # Process Audio Chunk Lambda (SQS Worker)
-resource "aws_lambda_function" "process_audio_chunk" {
-  function_name = "${var.environment}-process-audio-chunk"
+resource "aws_lambda_function" "transcribe_audio_chunk" {
+  function_name = "${var.environment}-transcribe-audio-chunk"
   handler       = "lambda.handler"
   runtime       = "nodejs20.x"
   role         = aws_iam_role.lambda_role.arn
   timeout      = 30
   
   s3_bucket = "lambda-artifacts"
-  s3_key    = "process-audio-chunk.zip"
+  s3_key    = "transcribe-audio-chunk.zip"
 
   environment {
     variables = {
@@ -223,9 +223,9 @@ resource "aws_lambda_function" "process_audio_chunk" {
 }
 
 # SQS Event Source Mapping
-resource "aws_lambda_event_source_mapping" "sqs_to_process_audio" {
+resource "aws_lambda_event_source_mapping" "sqs_to_transcribe_audio" {
   event_source_arn = aws_sqs_queue.audio_chunks_queue.arn
-  function_name    = aws_lambda_function.process_audio_chunk.arn
+  function_name    = aws_lambda_function.transcribe_audio_chunk.arn
   
   batch_size       = 1  // Process one message at a time
   enabled          = true
@@ -245,10 +245,10 @@ resource "aws_lambda_event_source_mapping" "sqs_to_process_audio" {
 }
 
 # Add Lambda permission for SQS
-resource "aws_lambda_permission" "allow_sqs_to_invoke_process_audio" {
+resource "aws_lambda_permission" "allow_sqs_to_invoke_transcribe_audio" {
   statement_id  = "AllowSQSInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.process_audio_chunk.function_name
+  function_name = aws_lambda_function.transcribe_audio_chunk.function_name
   principal     = "sqs.amazonaws.com"
   source_arn    = aws_sqs_queue.audio_chunks_queue.arn
 }

@@ -5,7 +5,6 @@ export const API_ENDPOINTS = {
     SESSIONS: {
       CREATE: '/consultations/sessions',
       GET: (id: string) => `/consultations/sessions/${id}`,
-      UPDATE_STATUS: (id: string) => `/consultations/sessions/${id}/status`,
       SUMMARY: (id: string) => `/consultations/sessions/${id}/summary`,
     },
     CHUNKS: {

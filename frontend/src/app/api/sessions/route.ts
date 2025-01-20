@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { API_ENDPOINTS, buildApiUrl } from '@/lib/endpoints';
 import type { CreateSessionResponse } from '@/lib/types';
+import { api } from '@/lib/api';
 
 const COMPONENT_NAME = 'SessionAPI';
 
@@ -14,7 +15,7 @@ export async function POST() {
   });
 
   try {
-    const response = await fetch(url, {
+    const response = await api.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

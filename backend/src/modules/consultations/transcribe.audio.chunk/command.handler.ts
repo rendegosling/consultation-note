@@ -2,6 +2,8 @@ import { ConsultationSessionRepository } from '@/modules/consultations/repositor
 import { logger } from '@/infrastructure/logging';
 import { ConsultationNotFound } from '../errors';
 import { AudioChunkStatus } from '../models';
+import axios from 'axios';
+import { config } from '@/config/app.config';
 
 const COMPONENT_NAME = 'TranscribeAudioChunkCommandHandler';
 
@@ -36,15 +38,36 @@ export class TranscribeAudioChunkCommandHandler {
       return undefined;
     }
 
-    // TODO: Implement actual transcription logic
-    const transcript = `Placeholder transcript for chunk ${command.chunkNumber}`;
-    session.addTranscript(command.chunkNumber, transcript);
-    await this.repository.save(session);
+    try {
+      // Call our audio-to-text API without sessionId
+      const response = await axios.post(
+        `http://backend:5000/ai/audio-to-text`,
+        {
+          audioUrl: `s3://${command.s3Key}`
+        },
+        {
+          headers: {
+            'Authorization': 'Basic ' + Buffer.from('admin:password').toString('base64')
+          }
+        }
+      );
 
-    return {
-      chunkNumber: command.chunkNumber,
-      transcript,
-      processedAt: new Date()
-    };
+      session.addTranscript(command.chunkNumber, response.data.text);
+      await this.repository.save(session);
+
+      return {
+        chunkNumber: command.chunkNumber,
+        transcript: response.data.text,
+        processedAt: new Date()
+      };
+
+    } catch (error) {
+      logger.error(COMPONENT_NAME, 'Failed to transcribe chunk', {
+        error: error instanceof Error ? error.message : String(error),
+        sessionId: command.sessionId,
+        chunkNumber: command.chunkNumber
+      });
+      throw error;
+    }
   }
 }

@@ -16,7 +16,7 @@ export function createTranscribeAudioChunkRouter(): Router {
   const controller = new TranscribeAudioChunkController(commandHandler);
 
   router.post(
-    'consultations/sessions/:sessionId/audio-chunks/:chunkNumber/transcribe',
+    '/consultations/sessions/:sessionId/audio-chunks/:chunkNumber/transcribe',
     controller.handle.bind(controller)
   );
 

@@ -8,6 +8,7 @@ import { createGenerateSummaryRouter } from './modules/consultations/generate.su
 import { createConsultationSessionRouter } from './modules/consultations/create.consultation.session/router';
 import { uploadAudioChunkRouter } from './modules/consultations/upload.audio.chunk/router';
 import { basicAuth } from './infrastructure/middleware/basic.auth.middleware';
+import { createAudioToTextRouter } from './modules/ai/audio.to.text/router';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use(createGenerateSummaryRouter());
 app.use(addNoteRouter);
 app.use(createConsultationSessionRouter());
 app.use(uploadAudioChunkRouter());
+app.use(createAudioToTextRouter())
 
 // Error handling
 app.use(errorHandler);
